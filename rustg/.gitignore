@@ -1,0 +1,61 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo.lock is usually gitignored for libraries
+# Uncomment if this is an executable/binary project
+# Cargo.lock
+
+# CUDA/C++ build artifacts
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.cu.o
+*.ptx
+*.cubin
+*.fatbin
+*.lib
+*.exp
+
+# Build directories
+/build/
+/cmake-build-*/
+/out/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Debug and profiling
+*.prof
+*.nvprof
+*.nsys-rep
+*.qdrep
+*.qdstrm
+*.sqlite
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Benchmarking
+/benches/target/
+/perf.data
+/perf.data.old
+
+# Documentation build
+/target/doc/
+/target/criterion/
+
+# Test coverage
+*.profraw
+*.profdata
+/coverage/
