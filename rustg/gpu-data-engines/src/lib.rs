@@ -48,7 +48,7 @@ pub struct GPUDataEngines {
 }
 
 /// Performance statistics across all engines
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct PerformanceStats {
     pub dataframe_throughput_gbps: f32,
     pub graph_throughput_edges_per_sec: f32,

@@ -90,7 +90,7 @@ __global__ void test_bfs_kernel(TestResult* result,
                 // Check if neighbor is unvisited
                 if (!state->visited[neighbor]) {
                     // Atomic CAS to claim this vertex
-                    bool was_visited = atomicExchange(&state->visited[neighbor], true);
+                    int was_visited = atomicExch((int*)&state->visited[neighbor], 1);
                     if (!was_visited) {
                         state->next_frontier[neighbor] = true;
                         state->distances[neighbor] = state->level + 1;
@@ -303,7 +303,7 @@ __global__ void test_triangle_counting_kernel(TestResult* result,
     
     // Add to global count
     if (warp.thread_rank() == 0) {
-        atomicAdd(triangle_count, local_triangles);
+        atomicAdd((unsigned long long*)triangle_count, (unsigned long long)local_triangles);
     }
 }
 
@@ -383,7 +383,7 @@ extern "C" {
         // Random target vertices for each edge
         thrust::sequence(thrust::device, graph.col_indices, graph.col_indices + num_edges);
         thrust::transform(thrust::device, graph.col_indices, graph.col_indices + num_edges,
-                         graph.col_indices, [] __device__ (uint32_t x) { return x % num_vertices; });
+                         graph.col_indices, [num_vertices] __device__ (uint32_t x) { return x % num_vertices; });
         
         // Allocate BFS state
         BFSState state;
@@ -474,7 +474,7 @@ extern "C" {
         
         thrust::sequence(thrust::device, graph.col_indices, graph.col_indices + num_edges);
         thrust::transform(thrust::device, graph.col_indices, graph.col_indices + num_edges,
-                         graph.col_indices, [] __device__ (uint32_t x) { return x % num_vertices; });
+                         graph.col_indices, [num_vertices] __device__ (uint32_t x) { return x % num_vertices; });
         
         // PageRank state
         PageRankState state;

@@ -137,17 +137,17 @@ fn demo_sql_engine(engines: &mut GPUDataEngines) -> Result<(), Box<dyn std::erro
     // Insert sample data
     println!("Inserting sample data...");
     let orders_data = vec![
-        vec![SQLValue::Int(1), SQLValue::Int(101), SQLValue::Double(250.75), SQLValue::Null],
-        vec![SQLValue::Int(2), SQLValue::Int(102), SQLValue::Double(89.50), SQLValue::Null],
-        vec![SQLValue::Int(3), SQLValue::Int(101), SQLValue::Double(175.25), SQLValue::Null],
-        vec![SQLValue::Int(4), SQLValue::Int(103), SQLValue::Double(420.00), SQLValue::Null],
-        vec![SQLValue::Int(5), SQLValue::Int(102), SQLValue::Double(95.75), SQLValue::Null],
+        vec![SQLValue::Int(1), SQLValue::Int(101), SQLValue::Double(250.75), SQLValue::String("PENDING".to_string())],
+        vec![SQLValue::Int(2), SQLValue::Int(102), SQLValue::Double(89.50), SQLValue::String("SHIPPED".to_string())],
+        vec![SQLValue::Int(3), SQLValue::Int(101), SQLValue::Double(175.25), SQLValue::String("PENDING".to_string())],
+        vec![SQLValue::Int(4), SQLValue::Int(103), SQLValue::Double(420.00), SQLValue::String("DELIVERED".to_string())],
+        vec![SQLValue::Int(5), SQLValue::Int(102), SQLValue::Double(95.75), SQLValue::String("SHIPPED".to_string())],
     ];
     
     let customers_data = vec![
-        vec![SQLValue::Int(101), SQLValue::Null, SQLValue::Null],
-        vec![SQLValue::Int(102), SQLValue::Null, SQLValue::Null], 
-        vec![SQLValue::Int(103), SQLValue::Null, SQLValue::Null],
+        vec![SQLValue::Int(101), SQLValue::String("Alice Smith".to_string()), SQLValue::String("North".to_string())],
+        vec![SQLValue::Int(102), SQLValue::String("Bob Jones".to_string()), SQLValue::String("South".to_string())], 
+        vec![SQLValue::Int(103), SQLValue::String("Charlie Brown".to_string()), SQLValue::String("East".to_string())],
     ];
     
     sql_engine.insert_data("orders", orders_data)?;

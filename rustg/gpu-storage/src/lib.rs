@@ -5,6 +5,8 @@ pub mod gpudirect;
 pub mod cache;
 pub mod formats;
 pub mod abstraction;
+pub mod nvidia_fs;
+pub mod storage_tiers;
 
 pub use gpudirect::{GPUDirectStorage, GPUDirectConfig, IORequest};
 pub use cache::{GPUPageCache, WriteBackCache, CacheStats};
@@ -48,7 +50,7 @@ pub struct GPUStorage {
 impl GPUStorage {
     /// Create new GPU storage instance
     pub fn new(config: StorageConfig) -> Result<Self> {
-        let direct_storage = Arc::new(GPUDirectStorage::new(config.gpudirect.clone()));
+        let direct_storage = Arc::new(GPUDirectStorage::new(config.gpudirect.clone())?);
         
         let cache_pages = (config.cache_size_mb * 1024 * 1024) / config.page_size;
         let page_cache = Arc::new(GPUPageCache::new(cache_pages, config.page_size));
@@ -73,7 +75,12 @@ impl GPUStorage {
         }
         
         // Cache miss - read from storage
-        let data = self.direct_storage.read_direct(offset, length).await?;
+        // Extract filename from path for GPUDirect
+        let filename = std::path::Path::new(path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(path);
+        let data = self.direct_storage.read_direct(filename, offset, length).await?;
         
         // Insert into cache
         self.page_cache.insert(offset, data.clone());
@@ -87,7 +94,12 @@ impl GPUStorage {
         self.page_cache.mark_dirty(offset);
         
         // Write to storage
-        self.direct_storage.write_direct(offset, data).await?;
+        // Extract filename from path for GPUDirect
+        let filename = std::path::Path::new(path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(path);
+        self.direct_storage.write_direct(filename, offset, data).await?;
         
         Ok(())
     }

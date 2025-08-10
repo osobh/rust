@@ -186,7 +186,7 @@ __global__ void test_table_scan_kernel(TestResult* result,
     }
     
     if (warp.thread_rank() == 0) {
-        atomicAdd(scanned_count, local_count);
+        atomicAdd((unsigned long long*)scanned_count, (unsigned long long)local_count);
     }
 }
 
@@ -272,7 +272,7 @@ __global__ void test_group_by_kernel(TestResult* result,
         // Insert/update in local hash table
         uint32_t hash = group_key % 1024;
         while (true) {
-            uint64_t existing = atomicCAS(&local_keys[hash], UINT64_MAX, group_key);
+            uint64_t existing = atomicCAS((unsigned long long*)&local_keys[hash], UINT64_MAX, group_key);
             if (existing == UINT64_MAX || existing == group_key) {
                 // Update aggregation
                 switch (agg_func) {
@@ -393,7 +393,7 @@ __global__ void test_nested_loop_join_kernel(TestResult* result,
             
             // Check for match
             if (left_key == right_key) {
-                uint64_t match_idx = atomicAdd(join_count, 1);
+                uint64_t match_idx = atomicAdd((unsigned long long*)join_count, 1ULL);
                 output_left_rows[match_idx] = left_row;
                 output_right_rows[match_idx] = right_row;
                 local_matches++;
@@ -516,7 +516,7 @@ __global__ void test_complex_query_kernel(TestResult* result,
         // Aggregate in local hash table
         uint32_t hash = customer_id % 256;
         while (true) {
-            uint64_t existing = atomicCAS(&local_customer_ids[hash], UINT64_MAX, customer_id);
+            uint64_t existing = atomicCAS((unsigned long long*)&local_customer_ids[hash], UINT64_MAX, customer_id);
             if (existing == UINT64_MAX || existing == customer_id) {
                 atomicAdd(&local_totals[hash], amount);
                 atomicAdd(&local_counts[hash], 1);

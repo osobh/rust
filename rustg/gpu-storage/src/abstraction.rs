@@ -1,40 +1,57 @@
 // Storage Abstraction Layer Implementation
 // Virtual file system with tiered storage management
+// Now using real storage paths: /nvme, /ssd, /hdd
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, AtomicU64, Ordering};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use parking_lot::RwLock;
 use bytes::Bytes;
 use async_trait::async_trait;
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, Context};
+use tokio::fs;
 
-/// Storage tier levels
+// Import storage tier manager
+use crate::storage_tiers::{StorageTier as RealStorageTier, TierManager};
+
+/// Storage tier levels mapped to real paths
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StorageTier {
-    GPUMemory,    // Hot - GPU memory
-    NVMe,         // Warm - NVMe SSD
-    HDD,          // Cold - HDD
-    Archive,      // Archive - Object storage
+    NVMe,         // Hot - /nvme path (GPUDirect capable)
+    SSD,          // Warm - /ssd path
+    HDD,          // Cold - /hdd path (archive)
 }
 
 impl StorageTier {
+    /// Get real filesystem path for tier
+    pub fn path(&self) -> &'static str {
+        match self {
+            StorageTier::NVMe => "/nvme",
+            StorageTier::SSD => "/ssd",
+            StorageTier::HDD => "/hdd",
+        }
+    }
+    
     pub fn access_latency_us(&self) -> f64 {
         match self {
-            StorageTier::GPUMemory => 0.1,
-            StorageTier::NVMe => 10.0,
-            StorageTier::HDD => 5000.0,
-            StorageTier::Archive => 100000.0,
+            StorageTier::NVMe => 10.0,      // NVMe latency
+            StorageTier::SSD => 100.0,      // SSD latency
+            StorageTier::HDD => 5000.0,     // HDD latency
         }
     }
     
     pub fn capacity_bytes(&self) -> usize {
         match self {
-            StorageTier::GPUMemory => 16 * 1024 * 1024 * 1024,      // 16GB
-            StorageTier::NVMe => 1024 * 1024 * 1024 * 1024,          // 1TB
-            StorageTier::HDD => 10 * 1024 * 1024 * 1024 * 1024,      // 10TB
-            StorageTier::Archive => usize::MAX,                       // Unlimited
+            StorageTier::NVMe => 2 * 1024 * 1024 * 1024 * 1024,      // 2TB NVMe
+            StorageTier::SSD => 8 * 1024 * 1024 * 1024 * 1024,       // 8TB SSD
+            StorageTier::HDD => 100 * 1024 * 1024 * 1024 * 1024,     // 100TB HDD
         }
+    }
+    
+    /// Check if tier supports GPUDirect Storage
+    pub fn supports_gpudirect(&self) -> bool {
+        matches!(self, StorageTier::NVMe)
     }
 }
 
@@ -73,17 +90,23 @@ impl VirtualFile {
     }
 }
 
-/// Virtual file system
+/// Virtual file system with real storage paths
 pub struct VirtualFS {
     files: Arc<RwLock<HashMap<String, Arc<VirtualFile>>>>,
     tier_manager: Arc<TieredStorageManager>,
+    real_tier_manager: Arc<TierManager>,  // Real tier manager for /nvme, /ssd, /hdd
 }
 
 impl VirtualFS {
     pub fn new() -> Self {
+        // Initialize real tier manager
+        let real_tier_manager = TierManager::new()
+            .expect("Failed to initialize tier manager with real paths");
+        
         Self {
             files: Arc::new(RwLock::new(HashMap::new())),
             tier_manager: Arc::new(TieredStorageManager::new()),
+            real_tier_manager: Arc::new(real_tier_manager),
         }
     }
     

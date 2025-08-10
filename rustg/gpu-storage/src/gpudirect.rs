@@ -1,12 +1,20 @@
 // GPUDirect Storage Implementation
 // Direct NVMe to GPU transfers with 10GB/s+ throughput
+// Now using real nvidia-fs (cuFile) API instead of simulation
 
 use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
 use std::sync::Arc;
+use std::os::unix::io::AsRawFd;
+use std::fs::OpenOptions;
+use std::path::{Path, PathBuf};
 use parking_lot::RwLock;
 use bytes::{Bytes, BytesMut};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use anyhow::Result;
+use anyhow::{Result, Context};
+
+// Import nvidia-fs bindings
+use crate::nvidia_fs::{NvidiaFS, GDSFile, GDSBatch, CUfileError_t};
+use crate::storage_tiers::{StorageTier, TierManager};
 
 /// GPUDirect Storage configuration
 #[derive(Debug, Clone)]
@@ -16,6 +24,7 @@ pub struct GPUDirectConfig {
     pub alignment: usize,
     pub queue_depth: usize,
     pub use_pinned_memory: bool,
+    pub nvme_path: PathBuf,  // Path to NVMe storage (/nvme)
 }
 
 impl Default for GPUDirectConfig {
@@ -26,6 +35,7 @@ impl Default for GPUDirectConfig {
             alignment: 4096,  // 4KB alignment
             queue_depth: 32,
             use_pinned_memory: true,
+            nvme_path: PathBuf::from("/nvme"),  // Real NVMe path
         }
     }
 }
@@ -88,12 +98,14 @@ impl IORequestQueue {
     }
 }
 
-/// GPUDirect Storage engine
+/// GPUDirect Storage engine with real nvidia-fs
 pub struct GPUDirectStorage {
     config: GPUDirectConfig,
     queue: Arc<RwLock<IORequestQueue>>,
     stats: Arc<StorageStats>,
     shutdown: Arc<AtomicBool>,
+    nvidia_fs: Option<Arc<NvidiaFS>>,  // Real nvidia-fs driver
+    tier_manager: Arc<TierManager>,    // Storage tier management
 }
 
 #[derive(Debug, Default)]
@@ -106,21 +118,43 @@ pub struct StorageStats {
 }
 
 impl GPUDirectStorage {
-    /// Create new GPUDirect storage instance
-    pub fn new(config: GPUDirectConfig) -> Self {
+    /// Create new GPUDirect storage instance with real nvidia-fs
+    pub fn new(config: GPUDirectConfig) -> Result<Self> {
         let queue = Arc::new(RwLock::new(IORequestQueue::new(config.queue_depth)));
         
-        Self {
+        // Initialize real nvidia-fs driver
+        let nvidia_fs = match NvidiaFS::init() {
+            Ok(nfs) => {
+                println!("✅ nvidia-fs initialized successfully");
+                println!("   Max Direct I/O: {} MB", nfs.max_direct_io_size() / (1024 * 1024));
+                Some(Arc::new(nfs))
+            },
+            Err(e) => {
+                println!("⚠️ nvidia-fs initialization failed: {}", e);
+                println!("   Falling back to standard I/O (performance will be limited)");
+                None
+            }
+        };
+        
+        // Initialize tier manager with real paths
+        let tier_manager = Arc::new(TierManager::new()?);        
+        
+        Ok(Self {
             config,
             queue,
             stats: Arc::new(StorageStats::default()),
             shutdown: Arc::new(AtomicBool::new(false)),
-        }
+            nvidia_fs,
+            tier_manager,
+        })
     }
     
-    /// Direct read from NVMe to GPU memory
-    pub async fn read_direct(&self, offset: u64, length: usize) -> Result<Bytes> {
+    /// Direct read from NVMe to GPU memory using real nvidia-fs
+    pub async fn read_direct(&self, filename: &str, offset: u64, length: usize) -> Result<Bytes> {
         let start = std::time::Instant::now();
+        
+        // Get file path on NVMe
+        let nvme_file = self.tier_manager.get_tier_path(StorageTier::NVMe, filename);
         
         // Align to page boundary
         let aligned_offset = (offset / self.config.alignment as u64) * self.config.alignment as u64;
@@ -131,8 +165,33 @@ impl GPUDirectStorage {
         let mut buffer = BytesMut::with_capacity(aligned_length);
         buffer.resize(aligned_length, 0);
         
-        // Simulate direct DMA transfer
-        self.simulate_dma_transfer(&mut buffer, aligned_offset, aligned_length).await?;
+        // Use real nvidia-fs if available
+        if let Some(ref nfs) = self.nvidia_fs {
+            // Open file with O_DIRECT for GPUDirect
+            let file = OpenOptions::new()
+                .read(true)
+                .custom_flags(libc::O_DIRECT)
+                .open(&nvme_file)
+                .with_context(|| format!("Failed to open {} for GPUDirect", nvme_file.display()))?;
+            
+            let fd = file.as_raw_fd();
+            let gds_file = nfs.open_file(&nvme_file, fd)?;
+            
+            // Register GPU buffer
+            let gpu_ptr = buffer.as_mut_ptr() as *mut std::os::raw::c_void;
+            nfs.register_buffer(gpu_ptr, aligned_length)?;
+            
+            // Perform real GPUDirect read
+            let bytes_read = gds_file.read(gpu_ptr, aligned_length, aligned_offset as i64)?;
+            
+            // Deregister buffer
+            nfs.deregister_buffer(gpu_ptr)?;
+            
+            println!("GPUDirect read: {} bytes from {} at offset {}", bytes_read, filename, offset);
+        } else {
+            // Fallback to standard I/O if nvidia-fs not available
+            self.standard_read(&nvme_file, &mut buffer, aligned_offset, aligned_length).await?;
+        }
         
         // Update stats
         self.stats.bytes_read.fetch_add(length, Ordering::Relaxed);
@@ -146,28 +205,44 @@ impl GPUDirectStorage {
         Ok(buffer.freeze().slice(offset_diff..offset_diff + length))
     }
     
-    /// Direct write from GPU memory to NVMe
-    pub async fn write_direct(&self, offset: u64, data: &[u8]) -> Result<()> {
+    /// Direct write from GPU memory to NVMe using real nvidia-fs
+    pub async fn write_direct(&self, filename: &str, offset: u64, data: &[u8]) -> Result<()> {
         let start = std::time::Instant::now();
+        
+        // Get file path on NVMe
+        let nvme_file = self.tier_manager.get_tier_path(StorageTier::NVMe, filename);
         
         // Align write
         let aligned_offset = (offset / self.config.alignment as u64) * self.config.alignment as u64;
         
-        // Queue write request
-        let request = IORequest {
-            offset: aligned_offset,
-            length: data.len(),
-            is_write: true,
-            completion: Arc::new(AtomicBool::new(false)),
-        };
-        
-        {
-            let mut queue = self.queue.write();
-            queue.enqueue(request);
+        // Use real nvidia-fs if available
+        if let Some(ref nfs) = self.nvidia_fs {
+            // Open file with O_DIRECT for GPUDirect
+            let file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .custom_flags(libc::O_DIRECT)
+                .open(&nvme_file)
+                .with_context(|| format!("Failed to open {} for GPUDirect write", nvme_file.display()))?;
+            
+            let fd = file.as_raw_fd();
+            let gds_file = nfs.open_file(&nvme_file, fd)?;
+            
+            // Register GPU buffer
+            let gpu_ptr = data.as_ptr() as *const std::os::raw::c_void;
+            nfs.register_buffer(gpu_ptr as *mut std::os::raw::c_void, data.len())?;
+            
+            // Perform real GPUDirect write
+            let bytes_written = gds_file.write(gpu_ptr, data.len(), aligned_offset as i64)?;
+            
+            // Deregister buffer
+            nfs.deregister_buffer(gpu_ptr as *mut std::os::raw::c_void)?;
+            
+            println!("GPUDirect write: {} bytes to {} at offset {}", bytes_written, filename, offset);
+        } else {
+            // Fallback to standard I/O if nvidia-fs not available
+            self.standard_write(&nvme_file, data, aligned_offset).await?;
         }
-        
-        // Simulate write
-        self.simulate_dma_write(data, aligned_offset).await?;
         
         // Update stats
         self.stats.bytes_written.fetch_add(data.len(), Ordering::Relaxed);
@@ -216,24 +291,33 @@ impl GPUDirectStorage {
         Ok(results)
     }
     
-    // Simulate DMA transfer (in real implementation, would use CUDA APIs)
-    async fn simulate_dma_transfer(&self, buffer: &mut [u8], 
-                                   offset: u64, length: usize) -> Result<()> {
-        // Simulate high-speed transfer
-        for i in 0..length {
-            buffer[i] = ((offset + i as u64) & 0xFF) as u8;
-        }
+    // Standard I/O fallback when nvidia-fs not available
+    async fn standard_read(&self, path: &Path, buffer: &mut [u8], 
+                           offset: u64, length: usize) -> Result<()> {
+        use tokio::fs::File;
+        use tokio::io::{AsyncReadExt, AsyncSeekExt};
         
-        // Simulate transfer time for 10GB/s
-        let transfer_time_us = (length as f64 / (10.0 * 1024.0 * 1024.0 * 1024.0)) * 1_000_000.0;
-        tokio::time::sleep(tokio::time::Duration::from_micros(transfer_time_us as u64)).await;
+        let mut file = File::open(path).await?;
+        file.seek(tokio::io::SeekFrom::Start(offset)).await?;
+        file.read_exact(&mut buffer[..length]).await?;
         
         Ok(())
     }
     
-    async fn simulate_dma_write(&self, _data: &[u8], _offset: u64) -> Result<()> {
-        // Simulate write with fsync
-        tokio::time::sleep(tokio::time::Duration::from_micros(100)).await;
+    async fn standard_write(&self, path: &Path, data: &[u8], offset: u64) -> Result<()> {
+        use tokio::fs::OpenOptions;
+        use tokio::io::{AsyncWriteExt, AsyncSeekExt};
+        
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(path)
+            .await?;
+        
+        file.seek(tokio::io::SeekFrom::Start(offset)).await?;
+        file.write_all(data).await?;
+        file.sync_all().await?;
+        
         Ok(())
     }
     
@@ -257,11 +341,16 @@ impl GPUDirectStorage {
     fn calculate_throughput(&self) -> f64 {
         let total_bytes = self.stats.bytes_read.load(Ordering::Relaxed) + 
                          self.stats.bytes_written.load(Ordering::Relaxed);
+        let total_ops = self.stats.read_ops.load(Ordering::Relaxed) + 
+                       self.stats.write_ops.load(Ordering::Relaxed);
         
-        // Simulated GPUDirect Storage throughput for validation
-        // In production, actual GPU measurements would be used
-        if total_bytes > 0 {
-            12.5  // 12.5 GB/s simulated GPUDirect throughput
+        if total_ops > 0 {
+            let total_latency = self.stats.total_latency_us.load(Ordering::Relaxed) as f64;
+            let avg_latency_s = (total_latency / total_ops as f64) / 1_000_000.0;
+            
+            // Calculate real throughput from actual measurements
+            let throughput_bps = total_bytes as f64 / avg_latency_s;
+            throughput_bps / (1024.0 * 1024.0 * 1024.0)  // Convert to GB/s
         } else {
             0.0
         }
