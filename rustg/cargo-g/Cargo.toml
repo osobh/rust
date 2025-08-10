@@ -1,0 +1,52 @@
+[package]
+name = "cargo-g"
+version = "0.1.0"
+edition = "2021"
+authors = ["rustg team"]
+description = "GPU-aware Cargo subcommand for rustg compiler"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+anyhow = "1.0"
+thiserror = "1.0"
+sha2 = "0.10"
+walkdir = "2.3"
+rayon = "1.7"
+indicatif = "0.17"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# GPU interaction
+cuda-sys = "0.2"
+rustacuda = "0.1"
+rustacuda_core = "0.1"
+rustacuda_derive = "0.1"
+
+[dev-dependencies]
+tempfile = "3.8"
+criterion = "0.5"
+proptest = "1.0"
+
+[build-dependencies]
+cc = "1.0"
+cuda-builder = "0.3"
+
+[[bin]]
+name = "cargo-g"
+path = "src/main.rs"
+
+[[bench]]
+name = "compilation_bench"
+harness = false
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.bench]
+inherits = "release"

@@ -1,0 +1,43 @@
+[package]
+name = "gpu-core-libs"
+version = "1.0.0"
+edition = "2021"
+authors = ["rustg team"]
+description = "GPU-Native Core Libraries for rustg"
+
+[dependencies]
+rayon = "1.7"
+parking_lot = "0.12"
+crossbeam = "0.8"
+ahash = "0.8"
+memmap2 = "0.9"
+bytemuck = "1.14"
+sha2 = "0.10"
+aes-gcm = "0.10"
+chacha20poly1305 = "0.10"
+regex = "1.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[build-dependencies]
+cc = "1.0"
+
+[lib]
+name = "gpu_core_libs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gpu-core"
+path = "src/main.rs"
+
+[features]
+default = ["cuda"]
+cuda = []
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.bench]
+opt-level = 3

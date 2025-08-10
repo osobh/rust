@@ -107,7 +107,6 @@ add_executable(perf_validation
 target_link_libraries(perf_validation
     rustg_core
     CUDA::cudart
-    CUDA::nvtx
 )
 
 set_target_properties(perf_validation PROPERTIES

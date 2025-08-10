@@ -1,0 +1,31 @@
+[package]
+name = "gpu-dev-tools"
+version = "1.0.0"
+edition = "2021"
+authors = ["rustg team"]
+description = "GPU-accelerated development tools for rustg"
+
+[dependencies]
+clap = "4.0"
+serde_json = "1.0"
+
+[build-dependencies]
+cc = "1.0"
+
+[lib]
+name = "gpu_dev_tools"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gpu-dev-tools"
+path = "src/main.rs"
+
+[features]
+default = ["cuda"]
+cuda = []
+opencl = []
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

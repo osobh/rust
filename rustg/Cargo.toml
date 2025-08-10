@@ -1,3 +1,15 @@
+[workspace]
+members = [
+    ".",
+    "gpu-test-harness",
+    "gpu-runtime-primitives",
+    "gpu-core-libs",
+    "gpu-storage",
+    "gpu-networking",
+    "gpu-data-engines"
+]
+resolver = "2"
+
 [package]
 name = "rustg"
 version = "0.1.0"
@@ -88,11 +100,7 @@ debug = true
 opt-level = 2
 debug = true
 
-[workspace]
-members = [
-    ".",
-]
-resolver = "2"
+# Workspace already defined at top of file
 
 [features]
 default = ["cuda"]

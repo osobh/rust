@@ -1,0 +1,53 @@
+[package]
+name = "gpu-storage"
+version = "1.0.0"
+edition = "2021"
+authors = ["rustg team"]
+description = "GPU-Native Storage & I/O for rustg"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+bytes = "1.0"
+memmap2 = "0.9"
+parking_lot = "0.12"
+crossbeam = "0.8"
+ahash = "0.8"
+lru = "0.12"
+# Arrow and Parquet temporarily disabled due to version conflicts
+# arrow = "45.0"
+# parquet = "45.0"
+object_store = "0.9"
+futures = "0.3"
+tracing = "0.1"
+anyhow = "1.0"
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.3"
+zstd = "0.13"
+lz4 = "1.24"
+clap = "4.5"
+rayon = "1.10"
+
+[build-dependencies]
+cc = "1.0"
+
+[lib]
+name = "gpu_storage"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gpu-storage"
+path = "src/main.rs"
+
+[features]
+default = ["cuda"]
+cuda = []
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.bench]
+opt-level = 3
