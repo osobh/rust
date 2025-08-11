@@ -33,6 +33,34 @@ path = "src/lib.rs"
 name = "rustg"
 path = "src/main.rs"
 
+[[bin]]
+name = "cargo-g"
+path = "src/bin/cargo-g.rs"
+
+[[bin]]
+name = "clippy-f"
+path = "src/bin/clippy-f.rs"
+
+[[bin]]
+name = "rustfmt-g"
+path = "src/bin/rustfmt-g.rs"
+
+[[bin]]
+name = "rustdoc-g"
+path = "src/bin/rustdoc-g.rs"
+
+[[bin]]
+name = "rustup-g"
+path = "src/bin/rustup-g.rs"
+
+[[bin]]
+name = "rust-analyzer-g"
+path = "src/bin/rust-analyzer-g.rs"
+
+[[bin]]
+name = "rust-gdb-g"
+path = "src/bin/rust-gdb-g.rs"
+
 [[bench]]
 name = "tokenizer_bench"
 harness = false
@@ -63,11 +91,18 @@ bumpalo = "3.14"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 bincode = "1.3"
+toml = "0.8"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
 
 # Command line interface
 clap = { version = "4.4", features = ["derive"] }
 indicatif = "0.17"
 colored = "2.0"
+
+# Dependencies for gpu-dev-tools integration
+gpu-dev-tools = { path = "gpu-dev-tools" }
 
 # Testing and benchmarking
 criterion = { version = "0.5", features = ["html_reports"] }

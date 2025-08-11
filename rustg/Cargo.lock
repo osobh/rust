@@ -636,7 +636,10 @@ checksum = "7e36cc9d416881d2e24f9a963be5fb1cd90966419ac844274161d10488b3e825"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
+ "js-sys",
  "num-traits",
+ "serde",
+ "wasm-bindgen",
  "windows-targets 0.52.6",
 ]
 
@@ -1444,6 +1447,15 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "gpu-dev-tools"
+version = "1.0.0"
+dependencies = [
+ "cc",
+ "clap",
+ "serde_json",
 ]
 
 [[package]]
@@ -3260,6 +3272,7 @@ dependencies = [
  "bindgen 0.69.5",
  "bumpalo",
  "cc",
+ "chrono",
  "clap",
  "cmake",
  "colored",
@@ -3267,6 +3280,7 @@ dependencies = [
  "cuda-sys",
  "cxx",
  "cxx-build",
+ "gpu-dev-tools",
  "indexmap",
  "indicatif",
  "insta",
@@ -3283,6 +3297,7 @@ dependencies = [
  "smallvec",
  "tempfile",
  "thiserror",
+ "toml",
  "tracing",
  "tracing-subscriber",
 ]
