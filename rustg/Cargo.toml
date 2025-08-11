@@ -17,9 +17,13 @@ edition = "2021"
 authors = ["rustg developers"]
 description = "GPU-native Rust compiler achieving 10x compilation speedup"
 license = "MIT OR Apache-2.0"
+
 repository = "https://github.com/rustg/rustg"
 keywords = ["compiler", "gpu", "cuda", "rust", "parallel"]
 categories = ["development-tools", "compilers"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(blackwell_gpu)'] }
 
 [lib]
 name = "rustg"

@@ -159,8 +159,9 @@ __global__ void test_zero_copy_transfer(TestResult* result,
         
         // Direct memory copy (simulating RDMA)
         for (size_t j = 0; j < transfer_size; j += 16) {
-            // Coalesced 16-byte transfers
-            *((float4*)(dst + j)) = *((float4*)(src + j));
+            // Coalesced 16-byte transfers (using int4 for CUDA 13.0 compatibility)
+            // Note: float4 is deprecated in CUDA 13.0, use aligned types or int4
+            *((int4*)(dst + j)) = *((int4*)(src + j));
         }
     }
     
@@ -479,9 +480,9 @@ __global__ void benchmark_rdma_throughput(TestResult* result,
         char* src = (char*)src_buffer + offset;
         char* dst = (char*)dst_buffer + offset;
         
-        // Vectorized copy
-        for (size_t i = 0; i < chunk_size; i += sizeof(float4)) {
-            *((float4*)(dst + i)) = *((float4*)(src + i));
+        // Vectorized copy (using int4 for CUDA 13.0 compatibility)
+        for (size_t i = 0; i < chunk_size; i += sizeof(int4)) {
+            *((int4*)(dst + i)) = *((int4*)(src + i));
         }
         
         __syncthreads();

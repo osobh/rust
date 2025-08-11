@@ -24,8 +24,8 @@ extern "C" void launch_ast_construction(
 
 extern "C" void launch_fused_tokenizer_ast(
     const char* source, size_t source_len,
-    Token* tokens, uint32_t* token_count,
-    ASTNodeGPU* nodes, uint32_t* node_count,
+    rustg::Token* tokens, uint32_t* token_count,
+    rustg::ASTNode* nodes, uint32_t* node_count,
     uint32_t max_tokens, uint32_t max_nodes);
 
 extern "C" void launch_advanced_syntax_processor(
@@ -173,7 +173,7 @@ public:
         uint32_t max_tokens = source_size; // Conservative estimate
         
         cudaMalloc(&d_source, source_size);
-        cudaMalloc(&d_tokens, max_tokens * sizeof(Token));
+        cudaMalloc(&d_tokens, max_tokens * sizeof(rustg::Token));
         cudaMalloc(&d_token_count, sizeof(uint32_t));
         
         // Copy source to GPU
@@ -225,8 +225,8 @@ public:
         
         // Estimate memory bandwidth utilization
         size_t total_memory = source_size + (token_count * sizeof(Token));
-        double theoretical_bandwidth = device_props.memoryBusWidth / 8.0 * 
-                                      device_props.memoryClockRate * 2e3; // GB/s
+        // Use estimated memory bandwidth since memoryClockRate is deprecated
+        double theoretical_bandwidth = device_props.memoryBusWidth / 8.0 * 1000.0; // GB/s estimate
         double actual_bandwidth = (total_memory / 1e9) / seconds;
         metrics.memory_bandwidth_pct = (actual_bandwidth / theoretical_bandwidth) * 100;
         
@@ -252,16 +252,16 @@ public:
         
         // Allocate GPU memory
         char* d_source;
-        Token* d_tokens;
-        ASTNodeGPU* d_nodes;
+        rustg::Token* d_tokens;
+        rustg::ASTNode* d_nodes;
         uint32_t* d_token_count;
         uint32_t* d_node_count;
         uint32_t max_tokens = source_size;
         uint32_t max_nodes = source_size / 2;
         
         cudaMalloc(&d_source, source_size);
-        cudaMalloc(&d_tokens, max_tokens * sizeof(Token));
-        cudaMalloc(&d_nodes, max_nodes * sizeof(ASTNodeGPU));
+        cudaMalloc(&d_tokens, max_tokens * sizeof(rustg::Token));
+        cudaMalloc(&d_nodes, max_nodes * sizeof(rustg::ASTNode));
         cudaMalloc(&d_token_count, sizeof(uint32_t));
         cudaMalloc(&d_node_count, sizeof(uint32_t));
         

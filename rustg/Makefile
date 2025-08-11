@@ -7,7 +7,10 @@ CMAKE := cmake
 MAKE := make
 NVCC := nvcc
 CUDA_MEMCHECK := cuda-memcheck
-NVPROF := nvprof
+# Profiling tools (CUDA 13.0 uses Nsight Systems)
+NSYS := nsys
+NCU := ncu
+NVPROF := nvprof  # Deprecated but kept for compatibility
 NSIGHT := nsight-compute
 
 # Directories
@@ -101,12 +104,12 @@ memcheck: gpu-test
 		echo "GPU kernel tests not built yet"; \
 	fi
 
-# Performance profiling with nvprof
+# Performance profiling with Nsight Systems (CUDA 13.0)
 .PHONY: profile
 profile: build
-	@echo "Profiling with nvprof..."
+	@echo "Profiling with Nsight Systems (CUDA 13.0)..."
 	@if [ -f $(CUDA_BUILD_DIR)/benchmarks ]; then \
-		$(NVPROF) --print-gpu-trace $(CUDA_BUILD_DIR)/benchmarks; \
+		$(NSYS) profile --stats=true --trace=cuda,nvtx --output=rustg_profile $(CUDA_BUILD_DIR)/benchmarks; \
 	else \
 		echo "Benchmarks not built yet"; \
 	fi
@@ -167,7 +170,9 @@ check-cuda:
 	@echo "Checking CUDA installation..."
 	@which nvcc > /dev/null && echo "✓ nvcc found: $$(nvcc --version | head -n 1)" || echo "✗ nvcc not found"
 	@which $(CUDA_MEMCHECK) > /dev/null && echo "✓ cuda-memcheck found" || echo "✗ cuda-memcheck not found"
-	@which $(NVPROF) > /dev/null && echo "✓ nvprof found" || echo "✗ nvprof not found"
+	@which $(NSYS) > /dev/null && echo "✓ Nsight Systems found" || echo "✗ Nsight Systems not found"
+	@which $(NCU) > /dev/null && echo "✓ Nsight Compute found" || echo "✗ Nsight Compute not found"
+	@which $(NVPROF) > /dev/null && echo "△ nvprof found (deprecated)" || echo "✗ nvprof not found"
 	@echo "CUDA device info:"
 	@nvidia-smi --query-gpu=name,memory.total,compute_cap --format=csv,noheader || echo "nvidia-smi not available"
 

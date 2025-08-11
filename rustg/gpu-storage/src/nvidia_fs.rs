@@ -1,5 +1,7 @@
 // NVIDIA GPUDirect Storage (nvidia-fs) FFI Bindings
+// Enhanced for CUDA 13.0 with cuFile 1.15.0.42
 // Provides Rust bindings for cuFile API for direct GPU-storage transfers
+// RTX 5090: Optimized for 1.5TB/s memory bandwidth
 
 use std::os::raw::{c_int, c_void, c_char, c_ulong};
 use std::ffi::CString;
@@ -35,7 +37,7 @@ pub enum CUfileHandleType {
     CU_FILE_HANDLE_TYPE_OPAQUE_NVFS = 3,
 }
 
-/// cuFile error codes
+/// cuFile error codes (Updated for CUDA 13.0)
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CUfileError_t {
@@ -51,6 +53,11 @@ pub enum CUfileError_t {
     CU_FILE_CUDA_ERROR = -9,
     CU_FILE_OS_CALL_ERROR = -10,
     CU_FILE_IO_ERROR = -11,
+    // CUDA 13.0 additions
+    CU_FILE_BUFFER_NOT_REGISTERED = -12,
+    CU_FILE_INVALID_MAPPING = -13,
+    CU_FILE_BATCH_FULL = -14,
+    CU_FILE_ASYNC_NOT_SUPPORTED = -15,
 }
 
 /// cuFile driver properties
@@ -388,6 +395,157 @@ impl Drop for GDSBatch {
     fn drop(&mut self) {
         unsafe {
             cuFileBatchIODestroy(self.handle);
+        }
+    }
+}
+
+// ============================================================================
+// CUDA 13.0 Async I/O Extensions
+// ============================================================================
+
+/// Async I/O handle for CUDA 13.0
+#[repr(C)]
+pub struct CUfileAsyncHandle_t {
+    _private: [u8; 0],
+}
+
+/// Async I/O parameters
+#[repr(C)]
+pub struct CUfileAsyncParams_t {
+    pub stream: *mut c_void,  // CUDA stream
+    pub callback: Option<extern "C" fn(*mut c_void)>,
+    pub callback_data: *mut c_void,
+    pub flags: u32,
+}
+
+/// CUDA 13.0 async I/O operations
+#[link(name = "cufile")]
+extern "C" {
+    pub fn cuFileReadAsync(
+        fh: *mut CUfileHandle_t,
+        devPtr_base: *mut c_void,
+        size: usize,
+        file_offset: i64,
+        devPtr_offset: i64,
+        params: *const CUfileAsyncParams_t
+    ) -> isize;
+    
+    pub fn cuFileWriteAsync(
+        fh: *mut CUfileHandle_t,
+        devPtr_base: *const c_void,
+        size: usize,
+        file_offset: i64,
+        devPtr_offset: i64,
+        params: *const CUfileAsyncParams_t
+    ) -> isize;
+}
+
+/// Enhanced GDS file handle with CUDA 13.0 async support
+pub struct GDSFileAsync {
+    pub handle: *mut CUfileHandle_t,
+    pub stream: *mut c_void,
+}
+
+impl GDSFileAsync {
+    /// Create async GDS file handle
+    pub fn new(path: &Path, stream: *mut c_void) -> Result<Self> {
+        let nvidia_fs = NvidiaFS::new()?;
+        let file_handle = nvidia_fs.open_file(path)?;
+        
+        Ok(Self {
+            handle: file_handle.handle,
+            stream,
+        })
+    }
+    
+    /// Async read with CUDA 13.0
+    pub fn read_async(
+        &self,
+        device_ptr: *mut c_void,
+        size: usize,
+        file_offset: i64,
+        callback: Option<extern "C" fn(*mut c_void)>
+    ) -> Result<()> {
+        let params = CUfileAsyncParams_t {
+            stream: self.stream,
+            callback,
+            callback_data: std::ptr::null_mut(),
+            flags: 0,
+        };
+        
+        unsafe {
+            let result = cuFileReadAsync(
+                self.handle,
+                device_ptr,
+                size,
+                file_offset,
+                0,
+                &params
+            );
+            
+            if result < 0 {
+                return Err(anyhow::anyhow!("Async read failed: {}", result));
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Async write with CUDA 13.0
+    pub fn write_async(
+        &self,
+        device_ptr: *const c_void,
+        size: usize,
+        file_offset: i64,
+        callback: Option<extern "C" fn(*mut c_void)>
+    ) -> Result<()> {
+        let params = CUfileAsyncParams_t {
+            stream: self.stream,
+            callback,
+            callback_data: std::ptr::null_mut(),
+            flags: 0,
+        };
+        
+        unsafe {
+            let result = cuFileWriteAsync(
+                self.handle,
+                device_ptr,
+                size,
+                file_offset,
+                0,
+                &params
+            );
+            
+            if result < 0 {
+                return Err(anyhow::anyhow!("Async write failed: {}", result));
+            }
+        }
+        
+        Ok(())
+    }
+}
+
+// ============================================================================
+// RTX 5090 Optimizations
+// ============================================================================
+
+/// Configuration optimized for RTX 5090 (32GB, 1.5TB/s)
+pub struct RTX5090Config {
+    pub buffer_size: usize,      // Optimal: 256MB for RTX 5090
+    pub queue_depth: u32,        // Optimal: 64 for Blackwell
+    pub alignment: usize,        // 4KB alignment
+    pub use_pinned_memory: bool,
+    pub enable_p2p: bool,        // Peer-to-peer for multi-GPU
+}
+
+impl Default for RTX5090Config {
+    fn default() -> Self {
+        Self {
+            buffer_size: 256 * 1024 * 1024,  // 256MB
+            queue_depth: 64,                  // Blackwell optimal
+            alignment: 4096,                  // 4KB
+            use_pinned_memory: true,
+            enable_p2p: true,
         }
     }
 }

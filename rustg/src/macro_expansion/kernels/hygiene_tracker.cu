@@ -7,6 +7,20 @@ namespace cg = cooperative_groups;
 
 namespace rustg {
 
+// Simple kernel to assign hygiene contexts
+__global__ void assign_hygiene_contexts(
+    const Token* tokens,
+    uint32_t count,
+    uint32_t* contexts,
+    uint32_t base
+) {
+    uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < count) {
+        // Assign unique context based on position and base
+        contexts[idx] = base + (idx / 10); // Group every 10 tokens
+    }
+}
+
 // Hygiene context information
 struct HygieneContext {
     uint32_t context_id;      // Unique context identifier
@@ -236,26 +250,9 @@ extern "C" void launch_hygiene_tracker(
     uint32_t threads_per_block = 256;
     uint32_t num_blocks = (token_count + threads_per_block - 1) / threads_per_block;
     
-    // Simple kernel to assign hygiene contexts
-    auto assign_contexts = [] __device__ (
-        const Token* tokens,
-        uint32_t count,
-        uint32_t* contexts,
-        uint32_t base
-    ) {
-        uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-        if (idx < count) {
-            // Assign unique context based on position and base
-            contexts[idx] = base + (idx / 10); // Group every 10 tokens
-        }
-    };
-    
     // Launch simple assignment kernel
-    void* args[] = { &tokens, &token_count, &hygiene_contexts, &current_context };
-    cudaLaunchKernel(
-        (void*)assign_contexts,
-        dim3(num_blocks), dim3(threads_per_block),
-        args, 0, nullptr
+    assign_hygiene_contexts<<<num_blocks, threads_per_block>>>(
+        tokens, token_count, hygiene_contexts, current_context
     );
     
     cudaError_t err = cudaGetLastError();

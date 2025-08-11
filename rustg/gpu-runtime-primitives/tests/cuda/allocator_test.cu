@@ -263,12 +263,13 @@ __global__ void test_coalesced_allocation(TestResult* result,
     uint32_t base_offset = warp_offset[threadIdx.x / 32];
     uint32_t my_offset = base_offset + lane_id * 128;
     
-    // Coalesced write pattern
-    float4* my_ptr = (float4*)(memory_pool + my_offset);
+    // Coalesced write pattern (using int4 for CUDA 13.0 compatibility)
+    // Note: float4 is deprecated, using int4 for aligned 16-byte access
+    int4* my_ptr = (int4*)(memory_pool + my_offset);
     
     // All threads in warp write simultaneously (coalesced)
-    for (int i = 0; i < 128 / sizeof(float4); i++) {
-        my_ptr[i] = make_float4(tid, warp_id, lane_id, i);
+    for (int i = 0; i < 128 / sizeof(int4); i++) {
+        my_ptr[i] = make_int4(tid, warp_id, lane_id, i);
     }
     
     // Verify coalescing

@@ -15,22 +15,7 @@ enum class MacroType : uint8_t {
     Procedural    // Not supported in Phase 2
 };
 
-// Pattern fragment types for macro_rules!
-enum class FragmentType : uint8_t {
-    Expr,         // $x:expr - Expression
-    Ident,        // $x:ident - Identifier
-    Path,         // $x:path - Path
-    Type,         // $x:ty - Type
-    Pattern,      // $x:pat - Pattern
-    Stmt,         // $x:stmt - Statement
-    Block,        // $x:block - Block
-    Item,         // $x:item - Item
-    Meta,         // $x:meta - Meta item
-    Literal,      // $x:literal - Literal
-    Lifetime,     // $x:lifetime - Lifetime
-    Vis,          // $x:vis - Visibility
-    TokenTree     // $x:tt - Token tree
-};
+// FragmentType is now defined in gpu_types.h
 
 // Macro pattern node for matching
 struct MacroPattern {

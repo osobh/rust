@@ -2,14 +2,11 @@
 #include <cooperative_groups.h>
 #include <cstdint>
 #include "../../../include/gpu_types.h"
+#include "../../../include/char_classifier.h"
 
 namespace cg = cooperative_groups;
 
 namespace rustg {
-
-// Forward declarations
-extern __device__ CharClass classify_char(unsigned char ch);
-extern __host__ void initialize_char_class_table();
 
 // Fused kernel shared memory structure
 struct FusedSharedMemory {

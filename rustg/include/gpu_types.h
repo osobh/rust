@@ -18,8 +18,9 @@ using i64 = int64_t;
 // Token types for lexical analysis
 enum class TokenType : u32 {
     // Special
-    Invalid = 0,
-    EOF,
+    Unknown = 0,    // Unknown/undefined token
+    Invalid,
+    EndOfFile,  // Avoid EOF macro conflict
     
     // Literals
     Identifier,
@@ -50,10 +51,22 @@ enum class TokenType : u32 {
     KeywordSuper,
     KeywordCrate,
     
+    // Advanced Rust tokens
+    Lifetime,        // 'a, 'static, etc.
+    Generic,         // Generic type parameters
+    Underscore,      // _ wildcard
+    DotDot,          // ..
+    DotDotEq,        // ..=
+    RefMut,          // &mut
+    TuplePattern,    // Pattern in tuples
+    SlicePattern,    // Pattern in slices
+    MacroBang,       // macro! invocation
+    
     // Operators
     Plus,
     Minus,
     Star,
+    Dollar,          // $ for macro variables
     Slash,
     Percent,
     Ampersand,
@@ -77,6 +90,7 @@ enum class TokenType : u32 {
     Dot,
     Colon,
     DoubleColon,
+    ColonColon = DoubleColon,  // Alias for compatibility
     Arrow,
     FatArrow,
     
@@ -129,6 +143,34 @@ enum class ASTNodeType : u32 {
     TraitDef,
 };
 
+// Macro fragment types for macro_rules!
+enum class FragmentType : u8 {
+    Expr,         // $x:expr - Expression
+    Ident,        // $x:ident - Identifier
+    Path,         // $x:path - Path
+    Type,         // $x:ty - Type
+    Pattern,      // $x:pat - Pattern
+    Stmt,         // $x:stmt - Statement
+    Block,        // $x:block - Block
+    Item,         // $x:item - Item
+    Meta,         // $x:meta - Meta item
+    Literal,      // $x:literal - Literal
+    Lifetime,     // $x:lifetime - Lifetime
+    Vis,          // $x:vis - Visibility
+    Tt,           // $x:tt - Token tree
+    TokenTree = Tt,  // Alias for compatibility
+};
+
+// ASTNode structure for GPU processing
+struct ASTNode {
+    ASTNodeType type;
+    u32 token_index;      // Index in token array
+    u32 parent_index;     // Index of parent node
+    u32 first_child;      // Index of first child
+    u32 next_sibling;     // Index of next sibling
+    u32 data;             // Type-specific data (operator precedence, etc.)
+};
+
 // Memory pool configuration
 struct MemoryPoolConfig {
     size_t block_size;
@@ -156,6 +198,7 @@ constexpr u32 WARP_SIZE = 32;
 constexpr u32 BLOCK_SIZE = 256;  // 8 warps
 constexpr u32 MAX_SHARED_MEMORY = 48 * 1024;  // 48KB
 constexpr u32 CHARS_PER_THREAD = 64;  // Each thread processes 64 characters
+constexpr u32 CHARS_PER_THREAD_OPT = 64;  // Optimized version constant
 
 // Error codes
 enum class ErrorCode : u32 {

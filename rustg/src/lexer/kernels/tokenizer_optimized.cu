@@ -2,21 +2,17 @@
 #include <cooperative_groups.h>
 #include <cstdint>
 #include "../../../include/gpu_types.h"
+#include "../../../include/char_classifier.h"
 
 namespace cg = cooperative_groups;
 
 namespace rustg {
 
-// Forward declarations
-extern __device__ CharClass classify_char(unsigned char ch);
-extern __host__ void initialize_char_class_table();
-
-// Optimized constants for performance
-constexpr uint32_t WARP_SIZE = 32;
+// Optimized constants for performance (WARP_SIZE and CHARS_PER_THREAD_OPT are in gpu_types.h)
 constexpr uint32_t WARPS_PER_BLOCK = 8;
 constexpr uint32_t THREADS_PER_BLOCK = WARP_SIZE * WARPS_PER_BLOCK;
 constexpr uint32_t SHARED_MEM_SIZE = 48 * 1024;  // 48KB shared memory
-constexpr uint32_t CHARS_PER_THREAD = 8;  // Increased for better throughput
+constexpr uint32_t CHARS_PER_THREAD_OPT_OPT = 8;  // Optimized for this kernel
 constexpr uint32_t TOKEN_BUFFER_SIZE = 64;  // Per-warp token buffer
 
 // Shared memory structure for optimized access
@@ -34,7 +30,7 @@ __device__ inline uint32_t detect_token_type_optimized(
     uint32_t source_len,
     uint32_t& token_end
 ) {
-    if (pos >= source_len) return static_cast<uint32_t>(TokenType::EOF);
+    if (pos >= source_len) return static_cast<uint32_t>(TokenType::EndOfFile);
     
     unsigned char ch = static_cast<unsigned char>(source[pos]);
     CharClass cls = classify_char(ch);
@@ -300,7 +296,7 @@ extern "C" void launch_tokenizer_optimized(
     // Optimal kernel configuration for modern GPUs
     const uint32_t threads_per_block = THREADS_PER_BLOCK;
     const uint32_t max_blocks = 65535;
-    const uint32_t chars_per_thread = CHARS_PER_THREAD;
+    const uint32_t chars_per_thread = CHARS_PER_THREAD_OPT;
     
     // Calculate grid size
     uint32_t total_threads_needed = (source_len + chars_per_thread - 1) / chars_per_thread;

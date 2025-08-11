@@ -83,19 +83,42 @@ else
 fi
 echo ""
 
-# Performance profiling
+# Performance profiling (CUDA 13.0 - Nsight Systems preferred)
 echo "=== Performance Profiling ==="
 
-if command -v nvprof &> /dev/null; then
-    echo "Running nvprof for performance analysis..."
+if command -v nsys &> /dev/null; then
+    echo "Running Nsight Systems for performance analysis (CUDA 13.0)..."
+    # Profile with GPU metrics and CUDA API tracing
+    nsys profile \
+        --stats=true \
+        --trace=cuda,nvtx,osrt \
+        --gpu-metrics-device=all \
+        --cuda-memory-usage=true \
+        --output=rustg_profile \
+        ./target/debug/rustg tests/fixtures/large.rs
+    echo -e "${GREEN}Performance profile saved to rustg_profile.nsys-rep${NC}"
+    echo "View with: nsys-ui rustg_profile.nsys-rep"
+elif command -v nvprof &> /dev/null; then
+    echo -e "${YELLOW}Warning: nvprof is deprecated in CUDA 13.0${NC}"
+    echo "Running legacy nvprof for compatibility..."
     nvprof --print-gpu-trace --print-api-trace ./target/debug/rustg tests/fixtures/large.rs 2>&1 | tee nvprof.log
-    echo -e "${GREEN}Performance profile saved to nvprof.log${NC}"
-elif command -v nsys &> /dev/null; then
-    echo "Running Nsight Systems for performance analysis..."
-    nsys profile --stats=true --output=rustg_profile ./target/debug/rustg tests/fixtures/large.rs
-    echo -e "${GREEN}Performance profile saved to rustg_profile.qdrep${NC}"
+    echo -e "${GREEN}Legacy profile saved to nvprof.log${NC}"
+    echo -e "${YELLOW}Consider installing Nsight Systems for better profiling${NC}"
 else
-    echo -e "${YELLOW}No profiling tool found (nvprof or nsys)${NC}"
+    echo -e "${YELLOW}No profiling tool found (install nsys for CUDA 13.0)${NC}"
+    echo "Install with: apt-get install nsight-systems-2024.7"
+fi
+
+# Nsight Compute for detailed kernel analysis
+if command -v ncu &> /dev/null; then
+    echo ""
+    echo "Running Nsight Compute for kernel analysis..."
+    ncu \
+        --kernel-name regex:tokenize \
+        --metrics gpu__time_duration.sum,sm__throughput.avg.pct_of_peak_sustained_elapsed \
+        --export rustg_kernel_analysis \
+        ./target/debug/rustg tests/fixtures/small.rs
+    echo -e "${GREEN}Kernel analysis saved to rustg_kernel_analysis.ncu-rep${NC}"
 fi
 echo ""
 

@@ -7,15 +7,8 @@ namespace cg = cooperative_groups;
 
 namespace rustg {
 
-// Extended AST node structure for GPU construction
-struct ASTNodeGPU {
-    ASTNodeType type;
-    uint32_t token_index;    // Index in token array
-    uint32_t parent_index;   // Index of parent node
-    uint32_t first_child;    // Index of first child
-    uint32_t next_sibling;   // Index of next sibling
-    uint32_t node_data;      // Additional data (operator precedence, etc.)
-};
+// ASTNode structure is now defined in gpu_types.h
+// Using ASTNode instead of ASTNode for consistency
 
 // Operator precedence levels (higher = tighter binding)
 __device__ inline uint32_t get_operator_precedence(TokenType op) {
@@ -70,7 +63,7 @@ __device__ inline bool is_expression_start(TokenType type) {
 // Shared memory for AST construction
 struct SharedASTMemory {
     Token token_cache[256];          // Token cache
-    ASTNodeGPU node_buffer[128];     // Local AST node buffer
+    ASTNode node_buffer[128];     // Local AST node buffer
     uint32_t stack[64];               // Parser stack per warp
     uint32_t warp_node_count[8];     // Node count per warp
     uint32_t warp_write_offset[8];   // Global write offset per warp
@@ -81,7 +74,7 @@ __device__ uint32_t parse_expression_gpu(
     const Token* tokens,
     uint32_t& pos,
     uint32_t token_count,
-    ASTNodeGPU* nodes,
+    ASTNode* nodes,
     uint32_t& node_index,
     uint32_t max_nodes,
     uint32_t min_precedence = 0
@@ -144,7 +137,7 @@ __device__ uint32_t parse_expression_gpu(
         nodes[op_node].token_index = pos - 1; // Operator token
         nodes[op_node].first_child = left_node;
         nodes[op_node].next_sibling = 0xFFFFFFFF;
-        nodes[op_node].node_data = precedence;
+        nodes[op_node].data = precedence;
         
         // Link children
         if (left_node != 0xFFFFFFFF) {
@@ -194,7 +187,7 @@ __global__ void ast_construction_kernel(
     
     // Simple AST construction (one thread for now, can be parallelized)
     if (tid == 0) {
-        ASTNodeGPU local_nodes[512];  // Local node buffer
+        ASTNode local_nodes[512];  // Local node buffer
         uint32_t node_count = 0;
         uint32_t pos = 0;
         
@@ -213,7 +206,7 @@ __global__ void ast_construction_kernel(
             Token current = (pos < tokens_to_load) ? 
                           shared->token_cache[pos] : tokens[pos];
             
-            if (current.type == TokenType::EOF) {
+            if (current.type == TokenType::EndOfFile) {
                 break;
             }
             
@@ -289,7 +282,7 @@ __global__ void ast_construction_kernel(
                 // Skip to next statement
                 while (pos < token_count && 
                        tokens[pos].type != TokenType::Semicolon &&
-                       tokens[pos].type != TokenType::EOF) {
+                       tokens[pos].type != TokenType::EndOfFile) {
                     pos++;
                 }
                 if (pos < token_count && tokens[pos].type == TokenType::Semicolon) {
@@ -320,7 +313,9 @@ __global__ void ast_construction_kernel(
             for (uint32_t i = 0; i < node_count; ++i) {
                 ast_nodes[write_offset + i].type = local_nodes[i].type;
                 ast_nodes[write_offset + i].token_index = local_nodes[i].token_index;
-                ast_nodes[write_offset + i].children.clear(); // GPU doesn't have vector
+                // Initialize child links
+                ast_nodes[write_offset + i].first_child = 0xFFFFFFFF;
+                ast_nodes[write_offset + i].next_sibling = 0xFFFFFFFF;
                 
                 parent_indices[write_offset + i] = 
                     (local_nodes[i].parent_index == 0xFFFFFFFF) ? 

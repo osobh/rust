@@ -1,6 +1,8 @@
 #include <cuda_runtime.h>
 #include <cstdint>
+#include <cstdio>
 #include "../../../include/gpu_types.h"
+#include "../../../include/char_classifier.h"
 
 namespace rustg {
 
@@ -117,7 +119,6 @@ static const CharClass host_char_class_table[256] = {
     CharClass::Invalid, CharClass::Invalid, CharClass::Invalid, CharClass::Invalid,
     CharClass::Invalid, CharClass::Invalid, CharClass::Invalid, CharClass::Invalid,
     CharClass::Invalid, CharClass::Invalid, CharClass::Invalid, CharClass::Invalid,
-    CharClass::Invalid, CharClass::Invalid, CharClass::Invalid, CharClass::Invalid,
     CharClass::Invalid, CharClass::Invalid, CharClass::Invalid, CharClass::Invalid
 };
 
@@ -128,7 +129,7 @@ __host__ void initialize_char_class_table() {
 }
 
 // Device function to classify a character
-__device__ inline CharClass classify_char(unsigned char ch) {
+__device__ CharClass classify_char(unsigned char ch) {
     return char_class_table[ch];
 }
 
@@ -184,7 +185,12 @@ extern "C" void launch_char_classifier_kernel(
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
         // Log error (in production, handle more gracefully)
+#ifdef __CUDA_ARCH__
+        // Device code: Use cuPrintf or omit for performance
+        // printf("CUDA error in classify_chars_kernel: %d\n", err);
+#else
         printf("CUDA error in classify_chars_kernel: %s\n", cudaGetErrorString(err));
+#endif
     }
 }
 

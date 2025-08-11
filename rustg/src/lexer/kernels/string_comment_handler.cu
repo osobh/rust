@@ -2,13 +2,11 @@
 #include <cooperative_groups.h>
 #include <cstdint>
 #include "../../../include/gpu_types.h"
+#include "../../../include/char_classifier.h"
 
 namespace cg = cooperative_groups;
 
 namespace rustg {
-
-// Forward declarations
-extern __device__ CharClass classify_char(unsigned char ch);
 
 // String literal states for finite state machine
 enum class StringState : uint8_t {
