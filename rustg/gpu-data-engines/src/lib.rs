@@ -36,7 +36,8 @@ use std::ffi::c_void;
 pub use dataframe::{GPUDataframe, FilterPredicate};
 pub use graph::{GPUGraph, CSRGraph};
 pub use search::{GPUSearchEngine, QueryType, SearchResult};
-pub use sql::{GPUSQLEngine, QueryResult, SQLValue, SQLDataType};
+pub use sql::{GPUSQLEngine};
+pub use sql::sql_types::{QueryResult, SQLValue, SQLDataType};
 
 /// Main GPU Data Engines orchestrator
 pub struct GPUDataEngines {

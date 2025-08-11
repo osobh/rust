@@ -131,11 +131,11 @@ fn print_performance_stats(result: &rustg::CompilationResult) {
     println!("\n=== Performance Statistics ===");
     println!("Total compilation time: {:.2}ms", result.total_time_ms());
     println!("  Parsing:      {:.2}ms ({:.1}x speedup)", 
-             result.parsing_time_ms(), result.parsing_speedup());
+             result.parsing_time_ms, result.parsing_speedup());
     println!("  Type checking: {:.2}ms ({:.1}x speedup)",
-             result.type_check_time_ms(), result.type_check_speedup());
+             result.type_check_time_ms, result.type_check_speedup());
     println!("  Code gen:     {:.2}ms ({:.1}x speedup)",
-             result.codegen_time_ms(), result.codegen_speedup());
+             result.codegen_time_ms, result.codegen_speedup());
     println!("GPU memory used: {}MB", result.gpu_memory_used_mb());
     println!("GPU utilization: {:.1}%", result.gpu_utilization());
 }

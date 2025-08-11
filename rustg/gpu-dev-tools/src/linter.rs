@@ -57,7 +57,7 @@ pub struct GPULinter {
     enabled_rules: Vec<LintRule>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct CustomRule {
     pub name: String,
     pub pattern: String,

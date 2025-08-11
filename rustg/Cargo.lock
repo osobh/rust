@@ -1450,15 +1450,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gpu-dev-tools"
-version = "1.0.0"
-dependencies = [
- "cc",
- "clap",
- "serde_json",
-]
-
-[[package]]
 name = "gpu-networking"
 version = "1.0.0"
 dependencies = [
@@ -3280,7 +3271,6 @@ dependencies = [
  "cuda-sys",
  "cxx",
  "cxx-build",
- "gpu-dev-tools",
  "indexmap",
  "indicatif",
  "insta",

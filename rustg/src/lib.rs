@@ -10,22 +10,18 @@
 include!(concat!(env!("OUT_DIR"), "/cuda_bindings.rs"));
 
 pub mod error;
+pub mod core;
+pub mod lexer;
+pub mod parser;
+pub mod ffi;
 
 use std::sync::Mutex;
 
 /// Library version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// GPU compilation result
-#[derive(Debug)]
-pub struct CompilationResult {
-    /// Success status
-    pub success: bool,
-    /// Output message
-    pub message: String,
-    /// Execution time in milliseconds  
-    pub duration_ms: f64,
-}
+// Re-export the proper compilation result from core module
+pub use crate::core::compiler::CompilationResult;
 
 /// GPU compiler instance
 #[derive(Debug)]
@@ -53,12 +49,9 @@ impl GpuCompiler {
             return Err("Compiler not initialized".into());
         }
         
-        // Placeholder implementation - in real version this would call CUDA kernels
-        Ok(CompilationResult {
-            success: true,
-            message: format!("Compiled {} bytes successfully", source.len()),
-            duration_ms: 1.0,
-        })
+        // Placeholder implementation - use the core compiler
+        let compiler = crate::core::compiler::GpuCompiler::new();
+        Ok(compiler.compile_source(source)?)
     }
 }
 

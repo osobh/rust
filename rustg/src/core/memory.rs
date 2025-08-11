@@ -11,13 +11,17 @@ pub struct GpuMemoryPool {
     total_size: usize,
     /// Available memory in bytes
     available: usize,
-    /// Base device pointer (from CUDA)
-    base_ptr: *mut u8,
+    /// Base device pointer (from CUDA) wrapped for thread safety
+    base_ptr: usize, // Store as usize to make it Send/Sync
     /// Allocation map
     allocations: HashMap<usize, Allocation>,
     /// Next allocation ID
     next_id: usize,
 }
+
+// Implement Send and Sync manually since we're managing GPU pointers safely
+unsafe impl Send for GpuMemoryPool {}
+unsafe impl Sync for GpuMemoryPool {}
 
 /// Individual memory allocation
 #[derive(Debug, Clone)]
@@ -64,7 +68,8 @@ pub fn get_memory_pool() -> Result<Arc<Mutex<GpuMemoryPool>>> {
 impl GpuMemoryPool {
     /// Create a new GPU memory pool
     pub fn new(size: usize) -> Result<Self> {
-        let base_ptr = unsafe { allocate_gpu_memory(size)? };
+        let raw_ptr = unsafe { allocate_gpu_memory(size)? };
+        let base_ptr = raw_ptr as usize; // Store as usize for thread safety
         
         Ok(Self {
             total_size: size,
@@ -104,11 +109,11 @@ impl GpuMemoryPool {
         self.allocations.insert(id, allocation.clone());
         self.available -= aligned_size;
         
-        let ptr = unsafe { self.base_ptr.add(offset) };
+        let ptr = (self.base_ptr + offset) as *mut std::ffi::c_void;
         
         Ok(GpuMemoryHandle {
             id,
-            ptr: ptr as *mut std::ffi::c_void,
+            ptr,
             size: aligned_size,
         })
     }
@@ -165,9 +170,9 @@ impl GpuMemoryPool {
     /// Clean up the memory pool
     fn cleanup(&mut self) -> Result<()> {
         unsafe {
-            free_gpu_memory(self.base_ptr)?;
+            free_gpu_memory(self.base_ptr as *mut u8)?;
         }
-        self.base_ptr = std::ptr::null_mut();
+        self.base_ptr = 0;
         self.allocations.clear();
         Ok(())
     }
@@ -180,6 +185,10 @@ pub struct GpuMemoryHandle {
     ptr: *mut std::ffi::c_void,
     size: usize,
 }
+
+// Implement Send and Sync manually since we're managing GPU pointers safely
+unsafe impl Send for GpuMemoryHandle {}
+unsafe impl Sync for GpuMemoryHandle {}
 
 impl GpuMemoryHandle {
     /// Get the device pointer

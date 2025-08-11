@@ -61,6 +61,14 @@ path = "src/bin/rust-analyzer-g.rs"
 name = "rust-gdb-g"
 path = "src/bin/rust-gdb-g.rs"
 
+[[bin]]
+name = "bindgen-g"
+path = "src/bin/bindgen-g.rs"
+
+[[bin]]
+name = "miri-g"
+path = "src/bin/miri-g.rs"
+
 [[bench]]
 name = "tokenizer_bench"
 harness = false
@@ -102,7 +110,8 @@ indicatif = "0.17"
 colored = "2.0"
 
 # Dependencies for gpu-dev-tools integration
-gpu-dev-tools = { path = "gpu-dev-tools" }
+# gpu-dev-tools = { path = "gpu-dev-tools" }
+tempfile = "3.8"
 
 # Testing and benchmarking
 criterion = { version = "0.5", features = ["html_reports"] }

@@ -381,24 +381,67 @@ impl ArtifactCache {
     }
     
     pub fn clear_project(&mut self, manifest_path: &Path) -> Result<()> {
-        // TODO: Implement project-specific cache clearing
-        // For now, clear entries modified after manifest
-        let manifest_modified = fs::metadata(manifest_path)?
-            .modified()?
-            .duration_since(UNIX_EPOCH)?
-            .as_secs();
+        // Clear cache entries specific to a project
+        let project_dir = manifest_path.parent()
+            .ok_or_else(|| anyhow!("Invalid manifest path"))?;
+        
+        // Get canonical path for accurate matching
+        let canonical_project = project_dir.canonicalize()
+            .unwrap_or_else(|_| project_dir.to_path_buf());
+        
+        // Extract project name from Cargo.toml if available
+        let project_name = if manifest_path.exists() {
+            fs::read_to_string(manifest_path)
+                .ok()
+                .and_then(|content| {
+                    content.lines()
+                        .find(|line| line.starts_with("name"))
+                        .and_then(|line| {
+                            line.split('=')
+                                .nth(1)
+                                .map(|s| s.trim().trim_matches('"').to_string())
+                        })
+                })
+        } else {
+            None
+        };
+        
+        // Remove entries that match:
+        // 1. Project path in metadata
+        // 2. Project name in cache key
+        // 3. Modified after manifest change
+        let manifest_modified = fs::metadata(manifest_path)
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
         
         let keys_to_remove: Vec<_> = self.index
             .iter()
-            .filter(|(_, e)| e.timestamp > manifest_modified)
+            .filter(|(key, entry)| {
+                // Check if entry is related to this project
+                let path_match = entry.metadata.source_files.iter()
+                    .any(|f| f.starts_with(&canonical_project));
+                
+                let name_match = project_name.as_ref()
+                    .map(|name| key.contains(name))
+                    .unwrap_or(false);
+                
+                let time_match = entry.timestamp > manifest_modified;
+                
+                path_match || name_match || time_match
+            })
             .map(|(k, _)| k.clone())
             .collect();
         
+        let count = keys_to_remove.len();
         for key in keys_to_remove {
             self.evict_entry(&key)?;
         }
         
         self.save_index()?;
+        info!("Cleared {} cache entries for project: {:?}", count, project_name.unwrap_or_else(|| "unknown".to_string()));
         Ok(())
     }
     
