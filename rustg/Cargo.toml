@@ -6,21 +6,22 @@ members = [
     "gpu-core-libs",
     "gpu-storage",
     "gpu-networking",
-    "gpu-data-engines"
+    "gpu-data-engines",
+    "gpu-abstraction-layer"
 ]
 resolver = "2"
 
 [package]
 name = "rustg"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["rustg developers"]
-description = "GPU-native Rust compiler achieving 10x compilation speedup"
+description = "Universal GPU-accelerated Rust development environment supporting NVIDIA, AMD, Apple, Intel, and TPU"
 license = "MIT OR Apache-2.0"
 
 repository = "https://github.com/rustg/rustg"
-keywords = ["compiler", "gpu", "cuda", "rust", "parallel"]
-categories = ["development-tools", "compilers"]
+keywords = ["compiler", "gpu", "universal", "rust", "parallel"]
+categories = ["development-tools", "compilers", "hardware-support"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(blackwell_gpu)'] }
@@ -109,6 +110,9 @@ clap = { version = "4.4", features = ["derive"] }
 indicatif = "0.17"
 colored = "2.0"
 
+# Universal GPU abstraction layer
+gpu-abstraction-layer = { path = "gpu-abstraction-layer" }
+
 # Dependencies for gpu-dev-tools integration
 # gpu-dev-tools = { path = "gpu-dev-tools" }
 tempfile = "3.8"
@@ -151,8 +155,47 @@ debug = true
 # Workspace already defined at top of file
 
 [features]
+# Default safe configuration - CUDA for maximum compatibility
 default = ["cuda"]
-cuda = []
-cpu-fallback = []
-profiling = []
-debug-gpu = []
+
+# Automatic backend detection and selection
+auto-detect = ["gpu-abstraction-layer/auto-detect"]
+
+# Individual GPU backends
+cuda = ["gpu-abstraction-layer/cuda"]
+rocm = ["gpu-abstraction-layer/rocm"] 
+metal = ["gpu-abstraction-layer/metal"]
+oneapi = ["gpu-abstraction-layer/oneapi"]
+tpu = ["gpu-abstraction-layer/tpu"]
+
+# Common backend combinations
+desktop-gpus = ["cuda", "rocm", "oneapi"]      # NVIDIA, AMD, Intel discrete GPUs
+apple-silicon = ["metal"]                      # Apple M1/M2/M3/M4 GPUs
+mobile-gpus = ["metal", "oneapi"]             # Mobile and integrated GPUs
+ml-accelerators = ["cuda", "tpu"]             # Machine learning focused
+scientific-computing = ["cuda", "rocm"]       # HPC and scientific workloads
+
+# All backends for comprehensive testing
+all-backends = ["cuda", "rocm", "metal", "oneapi", "tpu"]
+
+# Multi-GPU orchestration features
+orchestration = ["gpu-abstraction-layer/orchestration"]
+load-balancing = ["orchestration", "gpu-abstraction-layer/load-balancing"]
+failover = ["orchestration", "gpu-abstraction-layer/failover"]
+performance-monitoring = ["orchestration", "gpu-abstraction-layer/performance-monitoring"]
+
+# Development and optimization features
+profiling = ["gpu-abstraction-layer/profiling"]
+debug-gpu = ["gpu-abstraction-layer/debug-kernels"]
+cpu-fallback = ["gpu-abstraction-layer/cpu-fallback"]
+fast-math = ["gpu-abstraction-layer/fast-math"]
+
+# Target-specific optimizations
+rtx-5090 = ["cuda", "gpu-abstraction-layer/rtx-5090"]
+rx-7900xtx = ["rocm", "gpu-abstraction-layer/rx-7900xtx"] 
+m3-max = ["metal", "gpu-abstraction-layer/m3-max"]
+
+# Environment-specific builds
+development = ["profiling", "debug-gpu", "performance-monitoring"]
+production = ["all-backends", "fast-math", "cpu-fallback"]
+ci = ["all-backends", "orchestration"]

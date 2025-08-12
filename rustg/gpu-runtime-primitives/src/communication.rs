@@ -3,10 +3,9 @@
 
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::ptr;
 use std::mem::MaybeUninit;
-use std::time::Duration;
-use crossbeam_channel::{bounded, unbounded, Sender, Receiver};
+use std::cell::UnsafeCell;
+use crossbeam_channel::{bounded, Sender, Receiver};
 
 // FFI bindings to CUDA kernels
 extern "C" {
@@ -53,7 +52,7 @@ impl Message {
 
 /// Lock-free MPMC channel implementation
 pub struct MPMCChannel {
-    ring_buffer: Vec<MaybeUninit<Message>>,
+    ring_buffer: Vec<UnsafeCell<MaybeUninit<Message>>>,
     head: AtomicUsize,
     tail: AtomicUsize,
     capacity: usize,
@@ -68,7 +67,7 @@ impl MPMCChannel {
     pub fn new(capacity: usize) -> Self {
         let mut ring_buffer = Vec::with_capacity(capacity);
         for _ in 0..capacity {
-            ring_buffer.push(MaybeUninit::uninit());
+            ring_buffer.push(UnsafeCell::new(MaybeUninit::uninit()));
         }
 
         MPMCChannel {
@@ -101,7 +100,7 @@ impl MPMCChannel {
             ).is_ok() {
                 // Write message
                 unsafe {
-                    self.ring_buffer[tail].as_ptr().write(msg);
+                    (*self.ring_buffer[tail].get()).as_mut_ptr().write(msg);
                 }
                 return Ok(());
             }
@@ -129,7 +128,7 @@ impl MPMCChannel {
             ).is_ok() {
                 // Read message
                 let msg = unsafe {
-                    self.ring_buffer[head].as_ptr().read()
+                    (*self.ring_buffer[head].get()).as_ptr().read()
                 };
                 return Some(msg);
             }

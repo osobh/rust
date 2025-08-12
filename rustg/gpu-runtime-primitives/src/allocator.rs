@@ -2,7 +2,6 @@
 // Lock-free memory allocation with <100 cycle latency
 
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
-use std::ptr;
 use std::alloc::Layout;
 use std::collections::HashMap;
 use std::sync::Arc;

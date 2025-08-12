@@ -3,9 +3,7 @@
 
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicBool, Ordering};
 use std::sync::Arc;
-use std::collections::VecDeque;
 use std::ptr;
-use std::time::Duration;
 use crossbeam_deque::{Worker, Stealer, Injector};
 
 // FFI bindings to CUDA kernels

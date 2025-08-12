@@ -59,3 +59,12 @@
 *.profraw
 *.profdata
 /coverage/
+
+# Distribution and release artifacts
+/dist/
+*.tar.gz
+*.zip
+
+# Additional project directories
+/rustybooks/
+/gpu-abstraction-layer/

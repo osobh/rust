@@ -1,10 +1,8 @@
 // GPU Error Handling Infrastructure Implementation
 // Panic capture, low-overhead logging (<5%), structured reports
 
-use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::collections::VecDeque;
-use std::fmt;
 use std::time::SystemTime;
 use parking_lot::RwLock;
 
@@ -462,6 +460,10 @@ impl ErrorHandler {
 
     pub fn validate_performance(&self) -> bool {
         self.logger.validate_performance()
+    }
+
+    pub fn get_logging_overhead_percent(&self) -> f32 {
+        self.logger.get_overhead_percent()
     }
 }
 

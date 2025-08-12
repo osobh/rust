@@ -132,7 +132,7 @@ impl GPURuntime {
             atomic_valid: GPUAtomics::validate_performance(),
             channel_throughput: self.channels.get_throughput(1.0),
             channel_valid: self.channels.validate_performance(1.0),
-            logging_overhead: self.error_handler.logger.get_overhead_percent(),
+            logging_overhead: self.error_handler.get_logging_overhead_percent(),
             logging_valid: self.error_handler.validate_performance(),
         }
     }
