@@ -1,0 +1,297 @@
+name: Release RustG GPU Tools
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v0.2.0)'
+        required: true
+        default: 'v0.2.0'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build-and-release:
+    name: Build and Release RustG Tools
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Rust Toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.target }}
+        override: true
+        components: rustfmt, clippy
+    
+    - name: Setup CUDA (for GPU compilation)
+      uses: Jimver/cuda-toolkit@v0.2.11
+      with:
+        cuda: '13.0'
+        method: 'network'
+        
+    - name: Cache Dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ matrix.target }}-
+          ${{ runner.os }}-cargo-
+    
+    - name: Install Build Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential pkg-config libssl-dev
+        if [[ "${{ matrix.target }}" == *"musl"* ]]; then
+          sudo apt-get install -y musl-tools musl-dev
+        fi
+    
+    - name: Verify CUDA Installation
+      run: |
+        nvcc --version || echo "CUDA not available, using CPU fallback"
+        nvidia-smi || echo "No GPU detected, using CPU fallback"
+    
+    - name: Build Release Binaries
+      run: |
+        # Build all GPU-accelerated tools
+        cargo build --release --target ${{ matrix.target }} \
+          --bin cargo-g \
+          --bin clippy-f \
+          --bin rustfmt-g \
+          --bin rustdoc-g \
+          --bin rustup-g \
+          --bin rust-gdb-g \
+          --bin bindgen-g \
+          --bin miri-g
+    
+    - name: Run Tests
+      run: |
+        # Run comprehensive test suite
+        cargo test --release --target ${{ matrix.target }} --verbose
+    
+    - name: Verify Binary Functionality
+      run: |
+        # Test each binary can execute
+        ./target/${{ matrix.target }}/release/cargo-g --version || ./target/${{ matrix.target }}/release/cargo-g --help
+        ./target/${{ matrix.target }}/release/clippy-f --version || ./target/${{ matrix.target }}/release/clippy-f --help
+        ./target/${{ matrix.target }}/release/rustfmt-g --version || ./target/${{ matrix.target }}/release/rustfmt-g --help
+        ./target/${{ matrix.target }}/release/rustdoc-g --version || ./target/${{ matrix.target }}/release/rustdoc-g --help
+        ./target/${{ matrix.target }}/release/rustup-g --version || ./target/${{ matrix.target }}/release/rustup-g --help
+        ./target/${{ matrix.target }}/release/rust-gdb-g --version || ./target/${{ matrix.target }}/release/rust-gdb-g --help
+        ./target/${{ matrix.target }}/release/bindgen-g --version || ./target/${{ matrix.target }}/release/bindgen-g --help
+        ./target/${{ matrix.target }}/release/miri-g --version || ./target/${{ matrix.target }}/release/miri-g --help
+    
+    - name: Create Distribution Package
+      run: |
+        # Determine release tag
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          TAG="${{ github.event.inputs.tag }}"
+        else
+          TAG="${GITHUB_REF#refs/tags/}"
+        fi
+        
+        # Create distribution directory
+        DIST_NAME="rustg-gpu-compiler-${TAG}-linux-${{ matrix.target }}"
+        mkdir -p "dist/${DIST_NAME}"
+        
+        # Copy binaries
+        cp target/${{ matrix.target }}/release/cargo-g "dist/${DIST_NAME}/"
+        cp target/${{ matrix.target }}/release/clippy-f "dist/${DIST_NAME}/"
+        cp target/${{ matrix.target }}/release/rustfmt-g "dist/${DIST_NAME}/"
+        cp target/${{ matrix.target }}/release/rustdoc-g "dist/${DIST_NAME}/"
+        cp target/${{ matrix.target }}/release/rustup-g "dist/${DIST_NAME}/"
+        cp target/${{ matrix.target }}/release/rust-gdb-g "dist/${DIST_NAME}/"
+        cp target/${{ matrix.target }}/release/bindgen-g "dist/${DIST_NAME}/"
+        cp target/${{ matrix.target }}/release/miri-g "dist/${DIST_NAME}/"
+        
+        # Copy documentation
+        cp README.md "dist/${DIST_NAME}/"
+        cp CHANGELOG.md "dist/${DIST_NAME}/" 2>/dev/null || echo "CHANGELOG.md not found"
+        cp LICENSE* "dist/${DIST_NAME}/" 2>/dev/null || echo "LICENSE not found"
+        
+        # Create installer script
+        cat > "dist/${DIST_NAME}/install.sh" << 'EOF'
+        #!/bin/bash
+        set -e
+        echo "Installing RustG GPU-Accelerated Rust Tools..."
+        
+        INSTALL_DIR="${HOME}/.local/bin"
+        if [[ $EUID -eq 0 ]]; then
+            INSTALL_DIR="/usr/local/bin"
+        fi
+        
+        mkdir -p "$INSTALL_DIR"
+        
+        for tool in cargo-g clippy-f rustfmt-g rustdoc-g rustup-g rust-gdb-g bindgen-g miri-g; do
+            if [[ -f "$tool" ]]; then
+                cp "$tool" "$INSTALL_DIR/"
+                chmod +x "$INSTALL_DIR/$tool"
+                echo "✓ Installed $tool"
+            fi
+        done
+        
+        echo "RustG installation complete!"
+        echo "Add $INSTALL_DIR to your PATH if not already present"
+        echo "Test installation: cargo-g --version"
+        EOF
+        chmod +x "dist/${DIST_NAME}/install.sh"
+        
+        # Create tarball
+        cd dist
+        tar -czf "${DIST_NAME}.tar.gz" "${DIST_NAME}/"
+        
+        # Generate checksums
+        md5sum "${DIST_NAME}.tar.gz" > "${DIST_NAME}.tar.gz.md5"
+        sha256sum "${DIST_NAME}.tar.gz" > "${DIST_NAME}.tar.gz.sha256"
+        
+        # Display package info
+        ls -lah "${DIST_NAME}.tar.gz"
+        echo "Package created: ${DIST_NAME}.tar.gz"
+    
+    - name: Upload Distribution Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: rustg-${{ matrix.target }}
+        path: |
+          dist/*.tar.gz
+          dist/*.md5
+          dist/*.sha256
+    
+    - name: Create GitHub Release
+      if: matrix.target == 'x86_64-unknown-linux-gnu'  # Only create release once
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+        name: "RustG ${{ github.event.inputs.tag || github.ref_name }} - Complete GPU-Accelerated Rust Toolchain"
+        body_path: RELEASE_NOTES_v0.2.0.md
+        files: |
+          dist/*.tar.gz
+          dist/*.md5  
+          dist/*.sha256
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+  publish-crates:
+    name: Publish to crates.io  
+    runs-on: ubuntu-latest
+    needs: build-and-release
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Rust Toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    
+    - name: Publish Main Crate (if public)
+      run: |
+        # Only attempt to publish if we have a crates.io token
+        if [[ -n "${{ secrets.CARGO_REGISTRY_TOKEN }}" ]]; then
+          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        else
+          echo "No CARGO_REGISTRY_TOKEN found, skipping crates.io publication"
+        fi
+      continue-on-error: true
+  
+  docker-publish:
+    name: Build and Publish Docker Images
+    runs-on: ubuntu-latest
+    needs: build-and-release
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Login to Docker Hub
+      if: ${{ secrets.DOCKER_USERNAME && secrets.DOCKER_PASSWORD }}
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Download Artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: rustg-x86_64-unknown-linux-gnu
+        path: ./artifacts
+    
+    - name: Create Dockerfile
+      run: |
+        cat > Dockerfile << 'EOF'
+        FROM nvidia/cuda:13.0-devel-ubuntu20.04
+        
+        # Install system dependencies
+        RUN apt-get update && apt-get install -y \
+            build-essential \
+            curl \
+            pkg-config \
+            libssl-dev \
+            && rm -rf /var/lib/apt/lists/*
+        
+        # Install Rust
+        RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        ENV PATH="/root/.cargo/bin:${PATH}"
+        
+        # Create app directory
+        WORKDIR /app
+        
+        # Copy RustG binaries
+        COPY artifacts/*.tar.gz /tmp/
+        RUN cd /tmp && \
+            tar -xzf *.tar.gz && \
+            cd rustg-gpu-compiler-* && \
+            ./install.sh
+        
+        # Verify installation
+        RUN cargo-g --version && \
+            rustdoc-g --version && \
+            echo "RustG Docker image ready!"
+        
+        CMD ["/bin/bash"]
+        EOF
+    
+    - name: Build and Push Docker Image
+      if: ${{ secrets.DOCKER_USERNAME && secrets.DOCKER_PASSWORD }}
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/rustg:latest
+          ${{ secrets.DOCKER_USERNAME }}/rustg:${{ github.event.inputs.tag || github.ref_name }}
+        platforms: linux/amd64
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

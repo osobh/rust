@@ -1,0 +1,122 @@
+# RustG GPU Development Environment with Docker Compose
+version: '3.8'
+
+services:
+  rustg:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - CUDA_VERSION=13.0
+    image: rustg/rustg:latest
+    container_name: rustg-dev
+    
+    # GPU support
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, compute, utility]
+    
+    # Environment variables
+    environment:
+      - RUSTG_GPU_THREADS=256
+      - RUSTG_GPU_MEMORY_LIMIT=4096
+      - RUST_BACKTRACE=1
+      - CUDA_VISIBLE_DEVICES=all
+    
+    # Volume mounts
+    volumes:
+      - ${PWD}:/workspace
+      - rustg-cache:/root/.cargo
+      - rustg-config:/root/.rustg
+    
+    # Working directory
+    working_dir: /workspace
+    
+    # Keep container running
+    tty: true
+    stdin_open: true
+    
+    # Network configuration
+    networks:
+      - rustg-network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "cargo-g", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Development tools container (without GPU for basic tasks)
+  rustg-tools:
+    image: rustg/rustg:latest
+    container_name: rustg-tools
+    
+    environment:
+      - RUSTG_GPU_ENABLED=false  # Force CPU fallback
+      - RUST_BACKTRACE=1
+    
+    volumes:
+      - ${PWD}:/workspace
+      - rustg-cache:/root/.cargo
+    
+    working_dir: /workspace
+    
+    command: bash -c "echo 'RustG Tools Container (CPU fallback mode)' && bash"
+    
+    tty: true
+    stdin_open: true
+    
+    networks:
+      - rustg-network
+
+  # Documentation server
+  rustg-docs:
+    image: rustg/rustg:latest
+    container_name: rustg-docs
+    
+    volumes:
+      - ${PWD}:/workspace
+      - rustg-cache:/root/.cargo
+    
+    working_dir: /workspace
+    
+    command: bash -c "
+      if [ -f Cargo.toml ]; then
+        echo 'Generating documentation with rustdoc-g...'
+        rustdoc-g src/lib.rs --output /workspace/docs --stats
+        echo 'Documentation generated at /workspace/docs'
+        cd docs && python3 -m http.server 8080
+      else
+        echo 'No Cargo.toml found. Please mount your Rust project.'
+        sleep infinity
+      fi
+    "
+    
+    ports:
+      - "8080:8080"
+    
+    networks:
+      - rustg-network
+
+# Named volumes for persistence
+volumes:
+  rustg-cache:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOME}/.cargo
+  
+  rustg-config:
+    driver: local
+
+# Network configuration
+networks:
+  rustg-network:
+    driver: bridge
