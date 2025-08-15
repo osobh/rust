@@ -334,8 +334,6 @@ declare_features! (
     (unstable, rtm_target_feature, "1.35.0", Some(44839)),
     (unstable, s390x_target_feature, "1.82.0", Some(44839)),
     (unstable, sparc_target_feature, "1.84.0", Some(132783)),
-    (unstable, sse4a_target_feature, "1.27.0", Some(44839)),
-    (unstable, tbm_target_feature, "1.27.0", Some(44839)),
     (unstable, wasm_target_feature, "1.30.0", Some(44839)),
     (unstable, x87_target_feature, "1.85.0", Some(44839)),
     // !!!!    !!!!    !!!!    !!!!   !!!!    !!!!    !!!!    !!!!    !!!!    !!!!    !!!!
@@ -545,7 +543,7 @@ declare_features! (
     (incomplete, inherent_associated_types, "1.52.0", Some(8995)),
     /// Allows using `pointer` and `reference` in intra-doc links
     (unstable, intra_doc_pointers, "1.51.0", Some(80896)),
-    // Allows setting the threshold for the `large_assignments` lint.
+    /// Allows setting the threshold for the `large_assignments` lint.
     (unstable, large_assignments, "1.52.0", Some(83518)),
     /// Allow to have type alias types for inter-crate use.
     (incomplete, lazy_type_alias, "1.72.0", Some(112792)),
@@ -554,6 +552,8 @@ declare_features! (
     (unstable, link_arg_attribute, "1.76.0", Some(99427)),
     /// Allows fused `loop`/`match` for direct intraprocedural jumps.
     (incomplete, loop_match, "1.90.0", Some(132306)),
+    /// Allow `macro_rules!` attribute rules
+    (unstable, macro_attr, "CURRENT_RUSTC_VERSION", Some(83527)),
     /// Give access to additional metadata about declarative macro meta-variables.
     (unstable, macro_metavar_expr, "1.61.0", Some(83527)),
     /// Provides a way to concatenate identifiers using metavariable expressions.

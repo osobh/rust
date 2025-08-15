@@ -902,9 +902,8 @@ pub(crate) struct MappingToUnit {
     pub argument_label: Span,
     #[label(lint_map_label)]
     pub map_label: Span,
-    #[suggestion(style = "verbose", code = "{replace}", applicability = "maybe-incorrect")]
+    #[suggestion(style = "verbose", code = "for_each", applicability = "maybe-incorrect")]
     pub suggestion: Span,
-    pub replace: String,
 }
 
 // internal.rs
@@ -2686,6 +2685,9 @@ pub(crate) struct UnusedCrateDependency {
 pub(crate) struct IllFormedAttributeInput {
     pub num_suggestions: usize,
     pub suggestions: DiagArgValue,
+    #[note]
+    pub has_docs: bool,
+    pub docs: &'static str,
 }
 
 #[derive(LintDiagnostic)]
@@ -2936,9 +2938,10 @@ pub(crate) struct RawPrefix {
 pub(crate) struct UnusedBuiltinAttribute {
     #[note]
     pub invoc_span: Span,
-
     pub attr_name: Symbol,
     pub macro_name: String,
+    #[suggestion(code = "", applicability = "machine-applicable", style = "tool-only")]
+    pub attr_span: Span,
 }
 
 #[derive(LintDiagnostic)]

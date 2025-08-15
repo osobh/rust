@@ -557,13 +557,25 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         let (size, signed) = ty.int_size_and_signed(self.tcx);
         let width = size.bits();
 
-        if oop == OverflowOp::Sub && !signed {
-            // Emit sub and icmp instead of llvm.usub.with.overflow. LLVM considers these
-            // to be the canonical form. It will attempt to reform llvm.usub.with.overflow
-            // in the backend if profitable.
-            let sub = self.sub(lhs, rhs);
-            let cmp = self.icmp(IntPredicate::IntULT, lhs, rhs);
-            return (sub, cmp);
+        if !signed {
+            match oop {
+                OverflowOp::Sub => {
+                    // Emit sub and icmp instead of llvm.usub.with.overflow. LLVM considers these
+                    // to be the canonical form. It will attempt to reform llvm.usub.with.overflow
+                    // in the backend if profitable.
+                    let sub = self.sub(lhs, rhs);
+                    let cmp = self.icmp(IntPredicate::IntULT, lhs, rhs);
+                    return (sub, cmp);
+                }
+                OverflowOp::Add => {
+                    // Like with sub above, using icmp is the preferred form. See
+                    // <https://rust-lang.zulipchat.com/#narrow/channel/187780-t-compiler.2Fllvm/topic/.60uadd.2Ewith.2Eoverflow.60.20.28again.29/near/533041085>
+                    let add = self.add(lhs, rhs);
+                    let cmp = self.icmp(IntPredicate::IntULT, add, lhs);
+                    return (add, cmp);
+                }
+                OverflowOp::Mul => {}
+            }
         }
 
         let oop_str = match oop {
@@ -1327,15 +1339,13 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         &mut self,
         op: rustc_codegen_ssa::common::AtomicRmwBinOp,
         dst: &'ll Value,
-        mut src: &'ll Value,
+        src: &'ll Value,
         order: rustc_middle::ty::AtomicOrdering,
+        ret_ptr: bool,
     ) -> &'ll Value {
-        // The only RMW operation that LLVM supports on pointers is compare-exchange.
-        let requires_cast_to_int = self.val_ty(src) == self.type_ptr()
-            && op != rustc_codegen_ssa::common::AtomicRmwBinOp::AtomicXchg;
-        if requires_cast_to_int {
-            src = self.ptrtoint(src, self.type_isize());
-        }
+        // FIXME: If `ret_ptr` is true and `src` is not a pointer, we *should* tell LLVM that the
+        // LHS is a pointer and the operation should be provenance-preserving, but LLVM does not
+        // currently support that (https://github.com/llvm/llvm-project/issues/120837).
         let mut res = unsafe {
             llvm::LLVMBuildAtomicRMW(
                 self.llbuilder,
@@ -1346,7 +1356,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
                 llvm::False, // SingleThreaded
             )
         };
-        if requires_cast_to_int {
+        if ret_ptr && self.val_ty(res) != self.type_ptr() {
             res = self.inttoptr(res, self.type_ptr());
         }
         res
