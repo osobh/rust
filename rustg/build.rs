@@ -84,6 +84,7 @@ fn main() {
     
     println!("cargo:rustc-link-lib=cudart");
     println!("cargo:rustc-link-lib=cuda");
+    println!("cargo:rustc-link-lib=stdc++");
     
     // Generate Rust bindings for C++ headers
     generate_bindings(&manifest_dir, &out_dir);

@@ -7,9 +7,7 @@ description = "GPU-native testing framework for rustg ecosystem"
 license = "MIT"
 
 [dependencies]
-rustacuda = "0.1"
-rustacuda_core = "0.1"
-rustacuda_derive = "0.1"
+cudarc = { version = "0.17.2", features = ["driver", "runtime", "cuda-13000"] }
 clap = { version = "4.0", features = ["derive"] }
 colored = "2.0"
 serde = { version = "1.0", features = ["derive"] }

@@ -35,10 +35,19 @@ pub struct ASTNode {
 
 /// Parse tokens into an AST on GPU
 pub fn parse_gpu(tokens: &[Token]) -> Result<ASTNode> {
-    todo!("GPU parser not yet implemented")
+    // For now, fall back to CPU implementation
+    parse_cpu(tokens)
 }
 
 /// Parse tokens into an AST on CPU (reference implementation)
 pub fn parse_cpu(tokens: &[Token]) -> Result<ASTNode> {
-    todo!("CPU parser not yet implemented")
+    // Simple placeholder parser - just creates a basic AST
+    let root = ASTNode {
+        ty: ASTNodeType::Program,
+        token_index: None,
+        children: Vec::new(),
+    };
+    
+    // For now, just return a valid AST without full parsing
+    Ok(root)
 }

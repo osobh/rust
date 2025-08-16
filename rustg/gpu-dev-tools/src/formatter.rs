@@ -172,6 +172,7 @@ impl GPUFormatter {
 
     /// Format AST on GPU
     fn gpu_format_ast(&mut self, nodes: &[ASTNode]) -> Result<String, Box<dyn std::error::Error>> {
+        // Use the CUDA function from rustg crate
         extern "C" {
             fn cuda_format_ast(
                 nodes: *const u8,
@@ -212,6 +213,7 @@ impl GPUFormatter {
         lines: &[&str],
         changed_indices: &[usize],
     ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        // Use the CUDA function from rustg crate
         extern "C" {
             fn cuda_format_lines(
                 lines: *const c_char,

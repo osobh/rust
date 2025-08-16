@@ -7,7 +7,8 @@ members = [
     "gpu-storage",
     "gpu-networking",
     "gpu-data-engines",
-    "gpu-abstraction-layer"
+    "gpu-abstraction-layer",
+    "gpu-dev-tools"
 ]
 resolver = "2"
 
@@ -113,8 +114,6 @@ colored = "2.0"
 # Universal GPU abstraction layer
 gpu-abstraction-layer = { path = "gpu-abstraction-layer" }
 
-# Dependencies for gpu-dev-tools integration
-# gpu-dev-tools = { path = "gpu-dev-tools" }
 tempfile = "3.8"
 
 # Testing and benchmarking

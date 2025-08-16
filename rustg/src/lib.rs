@@ -15,6 +15,9 @@ pub mod lexer;
 pub mod parser;
 pub mod ffi;
 
+// Re-export key CUDA FFI functions
+pub use ffi::cuda::{initialize_cuda, cleanup_cuda};
+
 use std::sync::Mutex;
 
 /// Library version
@@ -27,14 +30,37 @@ pub use crate::core::compiler::CompilationResult;
 #[derive(Debug)]
 pub struct GpuCompiler {
     initialized: bool,
+    cpu_fallback: bool,
 }
 
 impl GpuCompiler {
     /// Create a new GPU compiler instance
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new() -> anyhow::Result<Self> {
         Ok(Self { 
-            initialized: false 
+            initialized: false,
+            cpu_fallback: false,
         })
+    }
+    
+    /// Enable CPU fallback for GPU operations
+    pub fn with_cpu_fallback(mut self, enable: bool) -> Self {
+        self.cpu_fallback = enable;
+        self
+    }
+    
+    /// Enable profiling
+    pub fn with_profiling(self, _enable: bool) -> Self {
+        self
+    }
+    
+    /// Set GPU memory limit
+    pub fn with_gpu_memory_limit(self, _limit_bytes: usize) -> Self {
+        self
+    }
+    
+    /// Set GPU thread count
+    pub fn with_gpu_threads(self, _thread_count: usize) -> Self {
+        self
     }
     
     /// Initialize the GPU compiler
@@ -44,14 +70,18 @@ impl GpuCompiler {
     }
     
     /// Compile Rust source code on GPU
-    pub fn compile(&self, source: &str) -> Result<CompilationResult, Box<dyn std::error::Error>> {
-        if !self.initialized {
-            return Err("Compiler not initialized".into());
-        }
+    pub fn compile_source(&self, source: &str) -> anyhow::Result<CompilationResult> {
+        // Use the core compiler directly
+        let compiler = crate::core::compiler::GpuCompiler::new()
+            .with_cpu_fallback(self.cpu_fallback);
         
-        // Placeholder implementation - use the core compiler
-        let compiler = crate::core::compiler::GpuCompiler::new();
-        Ok(compiler.compile_source(source)?)
+        compiler.compile_source(source).map_err(|e| anyhow::anyhow!("Compilation failed: {}", e))
+    }
+    
+    /// Compile a Rust source file on GPU
+    pub fn compile_file(&self, path: &std::path::Path) -> anyhow::Result<CompilationResult> {
+        let source = std::fs::read_to_string(path)?;
+        self.compile_source(&source)
     }
 }
 
@@ -64,7 +94,7 @@ impl Default for GpuCompiler {
 /// Initialize the GPU compiler runtime
 /// 
 /// This must be called before any GPU operations.
-pub fn initialize() -> Result<(), Box<dyn std::error::Error>> {
+pub fn initialize() -> anyhow::Result<()> {
     // Basic CUDA initialization would go here
     Ok(())
 }

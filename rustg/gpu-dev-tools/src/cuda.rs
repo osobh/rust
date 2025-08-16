@@ -61,6 +61,8 @@ impl CudaContext {
     }
 
     fn get_device_properties(device_id: i32) -> Result<DeviceProperties, Box<dyn std::error::Error>> {
+        // Use the CUDA function from rustg crate
+        // We need to declare it here since it's a C function
         extern "C" {
             fn cuda_get_device_properties(
                 device_id: i32,
@@ -119,6 +121,7 @@ impl CudaContext {
 
     /// Allocate GPU memory from pool
     pub fn allocate(&self, size: usize) -> Result<*mut u8, Box<dyn std::error::Error>> {
+        // Use the CUDA function from rustg crate
         extern "C" {
             fn cuda_malloc(size: usize) -> *mut u8;
         }
@@ -283,13 +286,13 @@ impl CudaContext {
     /// Get last CUDA error
     pub fn get_last_error(&self) -> Option<String> {
         extern "C" {
-            fn cuda_get_last_error(msg: *mut u8, max_len: i32) -> i32;
+            fn cuda_get_last_error_msg(msg: *mut u8, max_len: i32) -> i32;
         }
 
         let mut msg_buf = vec![0u8; 256];
         
         unsafe {
-            let result = cuda_get_last_error(msg_buf.as_mut_ptr(), 256);
+            let result = cuda_get_last_error_msg(msg_buf.as_mut_ptr(), 256);
             if result != 0 {
                 let msg = String::from_utf8_lossy(&msg_buf)
                     .trim_end_matches('\0')
@@ -329,6 +332,7 @@ impl CudaContext {
 
 impl Drop for CudaContext {
     fn drop(&mut self) {
+        // Use the CUDA function from rustg crate
         extern "C" {
             fn cuda_free(ptr: *mut u8);
         }

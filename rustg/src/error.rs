@@ -58,6 +58,10 @@ pub enum CompilerError {
     #[error("Feature not implemented: {0}")]
     NotImplemented(String),
     
+    /// Invalid UTF-8 encountered
+    #[error("Invalid UTF-8: {0}")]
+    InvalidUtf8(String),
+    
     /// Generic error with context
     #[error("{0}")]
     Other(String),

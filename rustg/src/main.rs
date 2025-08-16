@@ -61,7 +61,7 @@ fn main() -> Result<()> {
     let _guard = CleanupGuard;
 
     // Create compiler instance
-    let mut compiler = rustg::GpuCompiler::new()
+    let mut compiler = rustg::GpuCompiler::new()?
         .with_cpu_fallback(args.cpu_fallback)
         .with_profiling(args.profile)
         .with_gpu_memory_limit(args.gpu_memory_limit * 1024 * 1024);

@@ -7,9 +7,7 @@ description = "GPU debug and profiling infrastructure for rustg ecosystem"
 license = "MIT"
 
 [dependencies]
-rustacuda = "0.1"
-rustacuda_core = "0.1"
-rustacuda_derive = "0.1"
+cudarc = { version = "0.17.2", features = ["driver", "runtime", "cuda-13000"] }
 nvml-wrapper = "0.9"
 cupti = "0.1"
 clap = { version = "4.0", features = ["derive"] }

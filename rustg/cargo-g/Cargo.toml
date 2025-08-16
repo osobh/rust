@@ -21,10 +21,7 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 
 # GPU interaction
-cuda-sys = "0.2"
-rustacuda = "0.1"
-rustacuda_core = "0.1"
-rustacuda_derive = "0.1"
+cudarc = { version = "0.17.2", features = ["driver", "runtime", "cuda-13000"] }
 
 [dev-dependencies]
 tempfile = "3.8"

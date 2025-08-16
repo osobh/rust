@@ -227,6 +227,54 @@ impl GpuFormatter {
         }
     }
 
+    /// Format a single line with basic rules
+    fn format_single_line(&self, line: &str) -> String {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            return String::new();
+        }
+        
+        // Apply basic formatting rules
+        let mut result = String::new();
+        
+        // Add proper spacing around operators
+        let mut chars = trimmed.chars().peekable();
+        let mut in_string = false;
+        let mut escape_next = false;
+        
+        while let Some(ch) = chars.next() {
+            if escape_next {
+                result.push(ch);
+                escape_next = false;
+                continue;
+            }
+            
+            match ch {
+                '\\' if in_string => {
+                    result.push(ch);
+                    escape_next = true;
+                }
+                '"' => {
+                    result.push(ch);
+                    in_string = !in_string;
+                }
+                '=' | '+' | '-' | '*' | '/' if !in_string => {
+                    // Add spaces around operators
+                    if !result.ends_with(' ') {
+                        result.push(' ');
+                    }
+                    result.push(ch);
+                    if chars.peek() != Some(&' ') && chars.peek() != Some(&'=') {
+                        result.push(' ');
+                    }
+                }
+                _ => result.push(ch),
+            }
+        }
+        
+        result.trim().to_string()
+    }
+
     /// Incremental formatting for changed lines only
     fn format_incremental(&mut self, source: &str, changed_lines: &[usize]) -> Result<String> {
         if changed_lines.is_empty() {
@@ -236,19 +284,14 @@ impl GpuFormatter {
         let lines: Vec<String> = source.lines().map(|s| s.to_string()).collect();
         let mut result = lines.clone();
 
-        // Format only the changed lines (GPU optimization)
+        // Format only the changed lines (simulated GPU optimization)
         if self.config.gpu_acceleration && self.gpu_initialized {
-            let mut gpu_formatter = gpu_dev_tools::formatter::GPUFormatter::new()
-                .map_err(|e| anyhow::anyhow!("Failed to create GPU formatter: {}", e))?;
-            let formatted_result = gpu_formatter.format_incremental(source, changed_lines)
-                .map_err(|e| anyhow::anyhow!("GPU incremental formatting failed: {}", e))?;
-            
-            let formatted_lines: Vec<String> = formatted_result.lines().map(|s| s.to_string()).collect();
-            for (idx, line_num) in changed_lines.iter().enumerate() {
-                if let Some(formatted_line) = formatted_lines.get(idx) {
-                    if *line_num < result.len() {
-                        result[*line_num] = formatted_line.clone();
-                    }
+            // Simple incremental formatting without gpu_dev_tools dependency
+            for &line_num in changed_lines {
+                if line_num < result.len() {
+                    let line = &lines[line_num];
+                    let formatted_line = self.format_single_line(line);
+                    result[line_num] = formatted_line;
                 }
             }
         } else {

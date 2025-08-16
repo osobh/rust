@@ -49,6 +49,7 @@ file(GLOB_RECURSE CUDA_SOURCES
     src/core/*.cu
     src/lexer/*.cu
     src/parser/*.cu
+    src/ffi/*.cu
 )
 
 file(GLOB_RECURSE CPP_SOURCES 
@@ -80,6 +81,7 @@ add_library(rustg_core STATIC ${CUDA_SOURCES} ${CPP_SOURCES} ${KERNEL_SOURCES})
 target_link_libraries(rustg_core 
     CUDA::cudart
     CUDA::cuda_driver
+    stdc++
 )
 
 # Link cudadevrt for RDC (if available)
