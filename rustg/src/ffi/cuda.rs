@@ -176,13 +176,22 @@ pub fn format_lines_gpu(input: &str) -> Result<String> {
 /// Device properties
 #[derive(Debug, Clone)]
 pub struct DeviceProperties {
+    /// GPU device name
     pub name: String,
+    /// Total device memory in bytes
     pub total_memory: usize,
+    /// Major version of compute capability
     pub compute_capability_major: i32,
+    /// Minor version of compute capability
     pub compute_capability_minor: i32,
+    /// Maximum threads per block
     pub max_threads_per_block: i32,
+    /// Maximum blocks per streaming multiprocessor
     pub max_blocks_per_multiprocessor: i32,
+    /// Number of streaming multiprocessors
     pub multiprocessor_count: i32,
+    /// Warp size (typically 32 for NVIDIA GPUs)
     pub warp_size: i32,
+    /// Maximum shared memory per block in bytes
     pub max_shared_memory_per_block: usize,
 }

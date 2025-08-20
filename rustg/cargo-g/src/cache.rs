@@ -9,6 +9,7 @@ use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, Mutex};
 use tracing::{debug, info, warn};
 
 use crate::build::CompilationArtifact;
@@ -60,6 +61,55 @@ pub struct ArtifactCache {
     cache_dir: PathBuf,
     index: HashMap<String, CacheEntry>,
     statistics: CacheStats,
+    gpu_memory_pool: Option<Arc<GpuMemoryPool>>,
+}
+
+/// Simple GPU memory pool for cache
+pub struct GpuMemoryPool {
+    allocated_blocks: Arc<Mutex<HashMap<usize, Vec<u8>>>>,
+    total_allocated: Arc<Mutex<usize>>,
+    pool_size: usize,
+}
+
+impl GpuMemoryPool {
+    pub fn new(pool_size: usize) -> Self {
+        Self {
+            allocated_blocks: Arc::new(Mutex::new(HashMap::new())),
+            total_allocated: Arc::new(Mutex::new(0)),
+            pool_size,
+        }
+    }
+    
+    pub fn allocate(&self, size: usize) -> Option<usize> {
+        let mut blocks = self.allocated_blocks.lock().unwrap();
+        let mut total = self.total_allocated.lock().unwrap();
+        
+        if *total + size <= self.pool_size {
+            let block_id = blocks.len();
+            blocks.insert(block_id, vec![0u8; size]);
+            *total += size;
+            Some(block_id)
+        } else {
+            None
+        }
+    }
+    
+    pub fn deallocate(&self, block_id: usize) -> bool {
+        let mut blocks = self.allocated_blocks.lock().unwrap();
+        let mut total = self.total_allocated.lock().unwrap();
+        
+        if let Some(block) = blocks.remove(&block_id) {
+            *total -= block.len();
+            true
+        } else {
+            false
+        }
+    }
+    
+    pub fn get_stats(&self) -> (usize, usize) {
+        let total = *self.total_allocated.lock().unwrap();
+        (total, self.pool_size - total)
+    }
 }
 
 #[derive(Debug, Default)]
@@ -93,10 +143,14 @@ impl ArtifactCache {
             statistics.total_size += entry.metadata.total_size;
         }
         
+        // Initialize GPU memory pool for cache acceleration
+        let gpu_memory_pool = Some(Arc::new(GpuMemoryPool::new(512 * 1024 * 1024))); // 512MB pool
+        
         Ok(Self {
             cache_dir,
             index,
             statistics,
+            gpu_memory_pool,
         })
     }
     

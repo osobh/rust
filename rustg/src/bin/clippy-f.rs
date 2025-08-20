@@ -2,13 +2,11 @@
 // Provides 10x faster linting through parallel GPU processing
 
 use clap::{Arg, ArgAction, Command};
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
 use std::process::{self, Command as ProcessCommand};
 use std::time::Instant;
 use serde::{Serialize, Deserialize};
 use colored::*;
+use anyhow::{Context, Result};
 
 #[derive(Debug, Serialize)]
 struct JsonDiagnostic {
@@ -56,7 +54,7 @@ struct CustomLintConfig {
     message: String,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let matches = Command::new("clippy-f")
         .version("1.0.0")
         .about("GPU-accelerated Rust linter - 10x faster than standard clippy")
@@ -129,10 +127,12 @@ fn main() {
         )
         .get_matches();
 
-    let path = matches.get_one::<String>("path").unwrap();
+    let path = matches.get_one::<String>("path")
+        .context("Path argument is required")?;
     let fix = matches.get_flag("fix");
     let workspace = matches.get_flag("workspace");
-    let output_format = matches.get_one::<String>("output-format").unwrap();
+    let output_format = matches.get_one::<String>("output-format")
+        .context("Output format is required")?;
     let gpu_analysis = matches.get_flag("gpu-analysis");
     let verbose = matches.get_flag("verbose");
     let quiet = matches.get_flag("quiet");
@@ -201,7 +201,9 @@ fn main() {
                     time_ms: elapsed.as_millis(),
                 },
             };
-            println!("{}", serde_json::to_string_pretty(&json_output).unwrap());
+            let json_str = serde_json::to_string_pretty(&json_output)
+                .context("Failed to serialize JSON output")?;
+            println!("{}", json_str);
         }
         _ => {
             // Human output
@@ -241,4 +243,6 @@ fn main() {
     if error_count > 0 || !output.status.success() {
         process::exit(1);
     }
+    
+    Ok(())
 }

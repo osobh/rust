@@ -10,6 +10,7 @@ mod gpu;
 mod build;
 mod cache;
 mod config;
+mod incremental;
 
 use gpu::GpuDetector;
 use build::BuildSystem;

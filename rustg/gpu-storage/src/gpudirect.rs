@@ -5,15 +5,15 @@
 use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
 use std::sync::Arc;
 use std::os::unix::io::AsRawFd;
+use std::os::unix::fs::OpenOptionsExt;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use parking_lot::RwLock;
 use bytes::{Bytes, BytesMut};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use anyhow::{Result, Context};
 
 // Import nvidia-fs bindings
-use crate::nvidia_fs::{NvidiaFS, GDSFile, GDSBatch, CUfileError_t};
+use crate::nvidia_fs::NvidiaFS;
 use crate::storage_tiers::{StorageTier, TierManager};
 
 /// GPUDirect Storage configuration
@@ -261,7 +261,7 @@ impl GPUDirectStorage {
         // Process requests in parallel
         let futures: Vec<_> = requests
             .into_iter()
-            .map(|(offset, length)| self.read_direct(offset, length))
+            .map(|(offset, length)| self.read_direct("parallel_file", offset, length))
             .collect();
         
         for future in futures {
@@ -279,7 +279,7 @@ impl GPUDirectStorage {
         
         for i in 0..num_streams {
             let offset = (i * chunk_size) as u64;
-            let handle = self.read_direct(offset, chunk_size);
+            let handle = self.read_direct("test_file", offset, chunk_size);
             handles.push(handle);
         }
         

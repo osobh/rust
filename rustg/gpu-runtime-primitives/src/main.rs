@@ -42,12 +42,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match matches.subcommand() {
         Some(("test", sub_matches)) => {
-            let component = sub_matches.get_one::<String>("component").unwrap();
+            let component = sub_matches.get_one::<String>("component")
+                .context("Component argument is required for test command")?;
             run_tests(component)
         }
         Some(("benchmark", sub_matches)) => {
             let iterations: usize = sub_matches.get_one::<String>("iterations")
-                .unwrap()
+                .context("Iterations argument is required for benchmark command")?
                 .parse()
                 .unwrap_or(10000);
             run_benchmarks(iterations)

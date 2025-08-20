@@ -2,8 +2,6 @@
 // Uses actual storage paths: /nvme, /ssd, /hdd
 
 use std::path::{Path, PathBuf};
-use std::fs;
-use std::io;
 use anyhow::{Result, Context};
 use tokio::fs as async_fs;
 use serde::{Deserialize, Serialize};

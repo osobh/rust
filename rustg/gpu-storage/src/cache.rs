@@ -190,14 +190,14 @@ impl GPUPageCache {
         let page_offset = (offset / self.page_size as u64) * self.page_size as u64;
         
         let cache = self.pages.read();
-        if let Some(page) = cache.peek(&page_offset) {
+        if let Some(_page) = cache.peek(&page_offset) {
             // Would need interior mutability for dirty flag
             // In production, use atomic bool or Cell
         }
     }
     
     /// Prefetch next predicted pages
-    fn trigger_prefetch(&self, current_offset: u64) {
+    fn trigger_prefetch(&self, _current_offset: u64) {
         let predictor = self.prefetch_predictor.read();
         
         if let Some(next_offset) = predictor.predict_next() {
@@ -215,7 +215,7 @@ impl GPUPageCache {
     
     /// Flush dirty pages
     pub async fn flush_dirty(&self) -> Result<usize> {
-        let mut flushed = 0;
+        let flushed = 0;
         
         // In production, would iterate and flush dirty pages
         // For now, return count

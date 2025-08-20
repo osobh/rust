@@ -9,7 +9,7 @@ members = [
     "gpu-data-engines",
     "gpu-abstraction-layer",
     "gpu-dev-tools"
-]
+, "perf_test/test_project"]
 resolver = "2"
 
 [package]

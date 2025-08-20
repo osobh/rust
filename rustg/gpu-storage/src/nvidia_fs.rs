@@ -3,10 +3,9 @@
 // Provides Rust bindings for cuFile API for direct GPU-storage transfers
 // RTX 5090: Optimized for 1.5TB/s memory bandwidth
 
-use std::os::raw::{c_int, c_void, c_char, c_ulong};
-use std::ffi::CString;
+use std::os::raw::{c_int, c_void};
 use std::path::Path;
-use anyhow::{Result, Context};
+use anyhow::Result;
 
 /// cuFile handle type
 #[repr(C)]
@@ -88,7 +87,7 @@ pub struct CUfileIOParams_t {
 
 #[repr(C)]
 pub union CUfileIOParams_u {
-    pub buf: CUfileIOBufParams_t,
+    pub buf: std::mem::ManuallyDrop<CUfileIOBufParams_t>,
 }
 
 #[repr(C)]
@@ -449,8 +448,8 @@ pub struct GDSFileAsync {
 impl GDSFileAsync {
     /// Create async GDS file handle
     pub fn new(path: &Path, stream: *mut c_void) -> Result<Self> {
-        let nvidia_fs = NvidiaFS::new()?;
-        let file_handle = nvidia_fs.open_file(path)?;
+        let nvidia_fs = NvidiaFS::init()?;
+        let file_handle = nvidia_fs.open_file(path, -1)?; // -1 for no file descriptor
         
         Ok(Self {
             handle: file_handle.handle,

@@ -5,15 +5,13 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, AtomicU64, Ordering};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use parking_lot::RwLock;
 use bytes::Bytes;
 use async_trait::async_trait;
-use anyhow::{Result, anyhow, Context};
-use tokio::fs;
+use anyhow::{Result, anyhow};
 
 // Import storage tier manager
-use crate::storage_tiers::{StorageTier as RealStorageTier, TierManager};
+use crate::storage_tiers::TierManager;
 
 /// Storage tier levels mapped to real paths
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -186,10 +184,9 @@ pub struct MigrationStats {
 impl TieredStorageManager {
     pub fn new() -> Self {
         let mut tier_usage = HashMap::new();
-        tier_usage.insert(StorageTier::GPUMemory, 0);
         tier_usage.insert(StorageTier::NVMe, 0);
+        tier_usage.insert(StorageTier::SSD, 0);
         tier_usage.insert(StorageTier::HDD, 0);
-        tier_usage.insert(StorageTier::Archive, 0);
         
         Self {
             tier_usage: Arc::new(RwLock::new(tier_usage)),
@@ -203,20 +200,16 @@ impl TieredStorageManager {
         let file_size = file.size;
         
         // Hot data -> GPU memory
-        if access_count > 100 && file_size < StorageTier::GPUMemory.capacity_bytes() / 100 {
-            StorageTier::GPUMemory
-        }
-        // Warm data -> NVMe
-        else if access_count > 10 && file_size < StorageTier::NVMe.capacity_bytes() / 100 {
+        if access_count > 100 && file_size < StorageTier::NVMe.capacity_bytes() / 100 {
             StorageTier::NVMe
         }
-        // Cold data -> HDD
-        else if access_count > 1 {
-            StorageTier::HDD
+        // Warm data -> SSD
+        else if access_count > 10 && file_size < StorageTier::SSD.capacity_bytes() / 100 {
+            StorageTier::SSD
         }
-        // Archive
+        // Cold data -> HDD
         else {
-            StorageTier::Archive
+            StorageTier::HDD
         }
     }
     
@@ -268,7 +261,7 @@ pub struct LocalBackend {
 
 #[async_trait]
 impl StorageBackend for LocalBackend {
-    async fn read(&self, path: &str, offset: u64, length: usize) -> Result<Bytes> {
+    async fn read(&self, _path: &str, _offset: u64, length: usize) -> Result<Bytes> {
         // Simulate local file read
         Ok(Bytes::from(vec![0u8; length]))
     }

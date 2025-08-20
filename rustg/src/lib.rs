@@ -6,14 +6,29 @@
 #![warn(missing_docs)]
 #![allow(dead_code, unused_variables, unused_imports)]
 
-// Include the generated CUDA bindings
-include!(concat!(env!("OUT_DIR"), "/cuda_bindings.rs"));
+// Include the generated CUDA bindings with warning suppressions
+#[allow(non_camel_case_types, missing_docs, non_upper_case_globals)]
+mod cuda_bindings {
+    include!(concat!(env!("OUT_DIR"), "/cuda_bindings.rs"));
+}
 
+// Re-export the bindings
+pub use cuda_bindings::*;
+
+/// Error handling and result types
 pub mod error;
+/// Core compilation functionality including compiler and runtime components
 pub mod core;
+/// GPU-accelerated lexical analysis and tokenization
 pub mod lexer;
+/// GPU-accelerated parsing and AST generation
 pub mod parser;
+/// Foreign Function Interface bindings for CUDA and GPU operations
 pub mod ffi;
+/// Language Server Protocol types and utilities
+pub mod lsp_types;
+/// GPU analysis and optimization tools
+pub mod gpu_analyzer;
 
 // Re-export key CUDA FFI functions
 pub use ffi::cuda::{initialize_cuda, cleanup_cuda};

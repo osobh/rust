@@ -608,13 +608,14 @@ mod tests {
     #[test] 
     fn test_basic_formatting() {
         let config = FormatConfig { gpu_acceleration: false, ..Default::default() };
-        let mut formatter = GpuFormatter::new(config).unwrap();
+        let mut formatter = GpuFormatter::new(config)
+            .expect("Failed to create formatter in test");
         
         let source = "fn main(){let x=1;}";
         let result = formatter.basic_format(source);
         assert!(result.is_ok());
         
-        let formatted = result.unwrap();
+        let formatted = result.expect("Formatting should succeed in test");
         assert!(formatted.contains("fn main() {"));
         assert!(formatted.contains("    let x = 1;"));
     }
@@ -622,7 +623,8 @@ mod tests {
     #[test]
     fn test_config_hash_consistency() {
         let config = FormatConfig::default();
-        let mut formatter = GpuFormatter::new(config).unwrap();
+        let mut formatter = GpuFormatter::new(config)
+            .expect("Failed to create formatter in test");
         
         let hash1 = formatter.config_hash();
         let hash2 = formatter.config_hash();
@@ -632,7 +634,8 @@ mod tests {
     #[test]
     fn test_parse_changed_lines() {
         let lines = "1,5,10,15";
-        let result = parse_changed_lines(lines).unwrap();
+        let result = parse_changed_lines(lines)
+            .expect("Parse should succeed in test");
         assert_eq!(result, vec![1, 5, 10, 15]);
     }
 }

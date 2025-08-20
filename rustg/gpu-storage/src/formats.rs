@@ -1,7 +1,6 @@
 // Object Format Handlers Implementation
 // ELF, Parquet, Arrow parsing with 5GB/s+ throughput
 
-use std::sync::Arc;
 use bytes::Bytes;
 // Arrow/Parquet temporarily disabled due to compilation issues
 // Will be re-enabled with proper version pinning
@@ -140,7 +139,7 @@ impl ParquetHandler {
     }
     
     /// Read columnar data in parallel
-    pub async fn read_columns_parallel(data: Bytes) -> Result<Vec<ProcessedBatch>> {
+    pub async fn read_columns_parallel(_data: Bytes) -> Result<Vec<ProcessedBatch>> {
         // Simplified implementation without arrow dependency
         Ok(vec![ProcessedBatch {
             num_rows: 1000000,
@@ -303,7 +302,6 @@ impl FormatStreamer {
     
     /// Stream data at 5GB/s+ throughput
     pub async fn stream_high_throughput(&self, data: Bytes) -> Result<Vec<Bytes>> {
-        use tokio::task;
         use rayon::prelude::*;
         
         let chunk_size = self.chunk_size;

@@ -177,7 +177,7 @@ impl GPUStorage {
     
     async fn test_gpudirect(&self) -> bool {
         // Test direct storage read/write
-        match self.direct_storage.read_direct(0, 1024 * 1024).await {
+        match self.direct_storage.read_direct("test_file", 0, 1024 * 1024).await {
             Ok(data) => data.len() == 1024 * 1024,
             Err(_) => false,
         }
@@ -228,7 +228,7 @@ pub mod benchmarks {
         let size = size_gb * 1024 * 1024 * 1024;
         let start = Instant::now();
         
-        let _ = storage.direct_storage.read_direct(0, size).await.unwrap();
+        let _ = storage.direct_storage.read_direct("benchmark_file", 0, size).await.unwrap();
         
         let elapsed = start.elapsed();
         size as f64 / (1024.0 * 1024.0 * 1024.0) / elapsed.as_secs_f64()
@@ -240,7 +240,7 @@ pub mod benchmarks {
         
         for i in 0..num_ops {
             let offset = (i * 4096) as u64;
-            let _ = storage.direct_storage.read_direct(offset, 4096).await.unwrap();
+            let _ = storage.direct_storage.read_direct("random_file", offset, 4096).await.unwrap();
         }
         
         let elapsed = start.elapsed();

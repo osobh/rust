@@ -404,8 +404,10 @@ mod tests {
 
     #[test]
     fn test_slab_allocator() {
-        let allocator = SlabAllocator::new(256, 100).unwrap();
-        let ptr = allocator.allocate().unwrap();
+        let allocator = SlabAllocator::new(256, 100)
+            .expect("Failed to create slab allocator in test");
+        let ptr = allocator.allocate()
+            .expect("Failed to allocate memory in test");
         assert!(!ptr.is_null());
         allocator.deallocate(ptr);
     }

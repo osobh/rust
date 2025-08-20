@@ -201,8 +201,8 @@ fn generate_bindings(manifest_dir: &Path, out_dir: &Path) {
                 .header_contents("gpu_types_minimal.h", r#"
                     #include <stdint.h>
                     // Minimal type definitions for rustg
-                    typedef uint32_t u32;
-                    typedef uint8_t u8;
+                    typedef uint32_t U32;
+                    typedef uint8_t U8;
                 "#)
                 .generate()
                 .expect("Failed to generate minimal bindings")

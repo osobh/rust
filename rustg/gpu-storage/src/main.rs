@@ -120,7 +120,7 @@ async fn run_tests(storage: &GPUStorage, component: &str) -> Result<()> {
 
 async fn test_gpudirect(storage: &GPUStorage) -> Result<()> {
     println!("  1. Direct NVMe to GPU transfer...");
-    let data = storage.direct_storage.read_direct(0, 1024 * 1024).await?;
+    let data = storage.direct_storage.read_direct("test_file", 0, 1024 * 1024).await?;
     println!("     ✓ Read {} bytes directly to GPU", data.len());
     
     println!("  2. Batched I/O operations...");
@@ -184,7 +184,7 @@ async fn test_formats(storage: &GPUStorage) -> Result<()> {
     println!("  1. ELF format parsing...");
     let mut elf_data = vec![0u8; 64];
     elf_data[0..4].copy_from_slice(b"\x7FELF");
-    let header = ELFParser::parse_header(&elf_data)?;
+    let _header = ELFParser::parse_header(&elf_data)?;
     println!("     ✓ Parsed ELF header");
     
     println!("  2. Parquet metadata...");
@@ -223,7 +223,7 @@ async fn test_vfs(storage: &GPUStorage) -> Result<()> {
     
     println!("  4. Multi-backend support...");
     storage.vfs.create_file("local:///data/local.dat", 1024, StorageTier::HDD)?;
-    storage.vfs.create_file("s3://bucket/object.dat", 1024, StorageTier::Archive)?;
+    storage.vfs.create_file("s3://bucket/object.dat", 1024, StorageTier::HDD)?;
     println!("     ✓ Multiple backends registered");
     
     Ok(())
@@ -329,7 +329,7 @@ async fn run_demo(storage: &GPUStorage) -> Result<()> {
     
     println!("1. GPUDirect Storage");
     println!("-------------------");
-    let data = storage.direct_storage.read_direct(0, 10 * 1024 * 1024).await?;
+    let data = storage.direct_storage.read_direct("demo_file", 0, 10 * 1024 * 1024).await?;
     println!("  ✓ Direct GPU transfer: {} MB", data.len() / (1024 * 1024));
     
     let stats = storage.direct_storage.stats();
@@ -350,7 +350,7 @@ async fn run_demo(storage: &GPUStorage) -> Result<()> {
     
     println!("3. Virtual File System");
     println!("---------------------");
-    storage.vfs.create_file("/demo/file1.dat", 100 * 1024 * 1024, StorageTier::GPUMemory)?;
+    storage.vfs.create_file("/demo/file1.dat", 100 * 1024 * 1024, StorageTier::NVMe)?;
     storage.vfs.create_file("/demo/file2.dat", 1024 * 1024 * 1024, StorageTier::NVMe)?;
     storage.vfs.create_file("/demo/file3.dat", 10 * 1024 * 1024 * 1024, StorageTier::HDD)?;
     
